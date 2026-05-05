@@ -1,7 +1,9 @@
 import "../styles/home.css";
 import motoBg from "../assets/moto.jpeg";
+import { useNavigate } from "react-router-dom";
 
 export default function Home() {
+  const navigate = useNavigate();
   return (
     <div className="home">
 
@@ -36,7 +38,7 @@ export default function Home() {
             Gestión inteligente para talleres<br />de alto rendimiento
           </p>
           <div className="hero-actions">
-            <button className="btn-primary">Agendar servicio</button>
+            <button onClick={() => navigate("/booking")} className="btn-primary">Agendar servicio</button>
             <button className="btn-ghost">Ver servicios →</button>
           </div>
 
