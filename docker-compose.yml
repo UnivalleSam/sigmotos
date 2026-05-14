@@ -1,5 +1,5 @@
 services:
-  # --- FRONTEND ---
+
   frontend:
     build: ./frontend-sigmotos
     container_name: frontend-sigmotos
@@ -7,39 +7,146 @@ services:
       - "5173:5173"
     volumes:
       - ./frontend-sigmotos:/app
-      # Esta línea es clave: "bloquea" la carpeta node_modules del contenedor 
-      # para que no se sobrescriba con la de tu PC local
       - /app/node_modules
     environment:
       - NODE_ENV=development
 
-  # --- BACKEND (Ejemplo con un servicio) ---
-  users_db:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: users_db
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-
-  users_service:
-    build: ./sigmotos-backend/users_service
-    container_name: users-service
-    ports:
-      - "8001:8000"
-    volumes:
-      - ./sigmotos-backend/users_service:/app
-    depends_on:
-      - users_db
-    environment:
-      DATABASE_URL: postgresql://user:password@users_db:5432/users_db
-    
-  db:
+  postgres:
     image: postgres:16
-    container_name: sigmotos_db
-    restart: always
+    container_name: sigmotos-postgres
+
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: contraseña
-      POSTGRES_DB: users_db
+      POSTGRES_PASSWORD: postgres
+
     ports:
-        - "5432:5432"
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    networks:
+      - sigmotos-network
+
+  discovery-service:
+    build:
+      context: ./backend-sigmotos/discovery-service
+
+    container_name: discovery-service
+
+    ports:
+      - "8761:8761"
+
+    networks:
+      - sigmotos-network
+
+  api-gateway:
+    build:
+      context: ./backend-sigmotos/api-gateway
+
+    container_name: api-gateway
+
+    ports:
+      - "8090:8080"
+
+    depends_on:
+      - discovery-service
+
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
+
+    networks:
+      - sigmotos-network
+
+  users-service:
+    build:
+      context: ./backend-sigmotos/users-service
+
+    container_name: users-service
+
+    ports:
+      - "8081:8081"
+
+    depends_on:
+      - postgres
+      - discovery-service
+
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/users_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: juan123
+
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
+
+    networks:
+      - sigmotos-network
+
+  inventory-service:
+    build:
+      context: ./backend-sigmotos/inventory-service
+
+    container_name: inventory-service
+
+    ports:
+      - "8082:8082"
+
+    depends_on:
+      - postgres
+      - discovery-service
+
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/inventory_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: juan123
+
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
+
+    networks:
+      - sigmotos-network
+
+  workshop-service:
+    build:
+      context: ./backend-sigmotos/workshop-service
+
+    container_name: workshop-service
+
+    ports:
+      - "8083:8083"
+
+    depends_on:
+      - postgres
+      - discovery-service
+
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/workshop_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: juan123
+
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
+
+    networks:
+      - sigmotos-network
+
+  ocr-service:
+    build:
+      context: ./backend-sigmotos/ocr-service
+
+    container_name: ocr-service
+
+    ports:
+      - "8084:8084"
+
+    depends_on:
+      - discovery-service
+
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
+
+    networks:
+      - sigmotos-network
+
+volumes:
+  postgres_data:
+
+networks:
+  sigmotos-network:

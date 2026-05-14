@@ -1,0 +1,45 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+
+      routes:
+        - id: users-service
+          uri: lb://users-service
+          predicates:
+            - Path=/api/users/**
+
+        - id: inventory-service
+          uri: lb://inventory-service
+          predicates:
+            - Path=/api/inventory/**
+
+        - id: workshop-service
+          uri: lb://workshop-service
+          predicates:
+            - Path=/api/workshop/**
+
+        - id: ocr-service
+          uri: lb://ocr-service
+          predicates:
+            - Path=/api/ocr/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
