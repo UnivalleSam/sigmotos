@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import SigmotosAuth from "./pages/Auth/SigmotosAuth";
 import Booking from "./pages/Booking/booking";
+import MaintenanceStatus from "./pages/Maintenance/MaintenanceStatus";
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
         <Route path="/home" element={<Home />} />
         <Route path="/login" element={<SigmotosAuth />} />
         <Route path="/booking" element={<Booking />} />
+        <Route path="/maintenance" element={<MaintenanceStatus />} />
       </Routes>
     </BrowserRouter>
   );
