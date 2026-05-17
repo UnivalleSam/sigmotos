@@ -241,6 +241,8 @@ local_settings.py
 *.key
 secrets/
 .agent
+*local.yaml
+*local.yml
 
 # --- IDEs y Editores ---
 .vscode/

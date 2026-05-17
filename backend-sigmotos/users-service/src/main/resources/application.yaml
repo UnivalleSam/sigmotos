@@ -2,6 +2,9 @@ server:
   port: 8081
 
 spring:
+  profiles:
+    active: local
+
   datasource:
     url: jdbc:postgresql://localhost:5432/users_db
     username: postgres

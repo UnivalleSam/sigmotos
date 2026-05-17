@@ -29,4 +29,6 @@ public class VehicleDTO {
 
     @NotNull(message = "El ID del propietario es obligatorio")
     private Long ownerId;
+
+    private String ownerName;
 }

@@ -1,18 +1,23 @@
 package com.sigmotos.workshopservice.service;
 
+import com.sigmotos.workshopservice.client.UserClient;
+import com.sigmotos.workshopservice.dto.UserDTO;
 import com.sigmotos.workshopservice.dto.VehicleDTO;
 import com.sigmotos.workshopservice.entity.Vehicle;
 import com.sigmotos.workshopservice.exception.PlateAlreadyExistsException;
 import com.sigmotos.workshopservice.exception.VehicleNotFoundException;
 import com.sigmotos.workshopservice.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class VehicleService {
 
     private final VehicleRepository vehicleRepository;
+    private final UserClient userClient;
 
     public VehicleDTO register(VehicleDTO dto) {
         String normalizedPlate = formatPlate(dto.getPlate());
@@ -54,6 +59,18 @@ public class VehicleService {
     }
 
     private VehicleDTO toDTO(Vehicle vehicle) {
+        String ownerName = "Cliente no encontrado";
+        try {
+            UserDTO user = userClient.getUserById(vehicle.getOwnerId());
+            if (user != null) {
+                ownerName = user.getName();
+            }
+        } catch (Exception e) {
+            log.warn("No se pudo obtener el nombre del cliente de users-service para ownerId {}. Detalle: {}", 
+                     vehicle.getOwnerId(), e.getMessage());
+            ownerName = "Cliente SIGMOTOS (Offline)";
+        }
+
         return VehicleDTO.builder()
                 .id(vehicle.getId())
                 .plate(vehicle.getPlate())
@@ -61,6 +78,7 @@ public class VehicleService {
                 .model(vehicle.getModel())
                 .year(vehicle.getYear())
                 .ownerId(vehicle.getOwnerId())
+                .ownerName(ownerName)
                 .build();
     }
 }
