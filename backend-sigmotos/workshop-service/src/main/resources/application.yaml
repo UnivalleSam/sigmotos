@@ -5,17 +5,17 @@ spring:
   application:
     name: workshop-service
 
-  datasource:
-    url: jdbc:postgresql://localhost:5432/workshop_db
-    username: postgres
-    password: postgres
+  profiles:
+    active: local
+
+  docker:
+    compose:
+      enabled: false
 
   jpa:
     hibernate:
       ddl-auto: update
-
     show-sql: true
-
     properties:
       hibernate:
         format_sql: true

@@ -1,0 +1,24 @@
+# =============================================================================
+# CONFIGURACIÓN LOCAL DE BASE DE DATOS (workshop-service)
+# =============================================================================
+# 1. Copia este archivo y renómbralo a: application-local.yaml
+# 2. Cambia "password" por la contraseña de tu usuario postgres en pgAdmin
+# 3. En pgAdmin ejecuta el script: scripts/init-workshop-db.sql
+# 4. Arranca el servicio: .\mvnw.cmd spring-boot:run
+# =============================================================================
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/workshop_db
+    username: postgres
+    password: PON_AQUI_TU_CONTRASEÑA_POSTGRES
+
+    driver-class-name: org.postgresql.Driver
+
+    hikari:
+      maximum-pool-size: 5
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false

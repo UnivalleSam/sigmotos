@@ -28,6 +28,11 @@ spring:
           predicates:
             - Path=/api/workshop/**
 
+        - id: vehicles-service
+          uri: lb://workshop-service
+          predicates:
+            - Path=/api/vehicles/**
+
         - id: ocr-service
           uri: lb://ocr-service
           predicates:
