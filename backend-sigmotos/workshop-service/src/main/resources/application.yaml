@@ -5,6 +5,9 @@ spring:
   application:
     name: workshop-service
 
+  profiles:
+    active: local
+
   datasource:
     url: jdbc:postgresql://localhost:5432/workshop_db
     username: postgres
