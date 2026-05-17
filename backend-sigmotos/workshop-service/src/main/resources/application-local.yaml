@@ -1,0 +1,19 @@
+# Configuración local — edita la contraseña y guarda el archivo.
+# Este archivo no se sube a Git (.gitignore).
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/workshop_db
+    username: postgres
+    password: andres3333
+
+    driver-class-name: org.postgresql.Driver
+
+    hikari:
+      maximum-pool-size: 5
+
+# Pruebas rápidas: no hace falta levantar discovery-service
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
