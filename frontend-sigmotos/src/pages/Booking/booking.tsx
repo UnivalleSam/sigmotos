@@ -1,13 +1,30 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Datos maestros
-const bikes = [
+interface Bike {
+  id: number;
+  brand: string;
+  model: string;
+  year: string;
+  color: string;
+  image: string;
+}
+
+interface Service {
+  id: string;
+  label: string;
+  price: number;
+  duration: number;
+  icon: string;
+}
+
+const bikes: Bike[] = [
   { id: 1, brand: 'Kawasaki', model: 'NINJA 400', year: '2022', color: '#32CD32', image: 'https://images.unsplash.com/photo-1599819811279-d5ad9cccf838?w=400' },
   { id: 2, brand: 'Yamaha', model: 'MT-09', year: '2023', color: '#0056FF', image: 'https://images.unsplash.com/photo-1622185135505-2d795003994a?w=400' },
 ];
 
-const services = [
+const services: Service[] = [
   { id: 'maint', label: 'Mantenimiento General', price: 260000, duration: 240, icon: '🔧' },
   { id: 'diag', label: 'Scanner OBD II', price: 120000, duration: 45, icon: '💻' },
   { id: 'oil', label: 'Cambio Aceite Sintético', price: 90000, duration: 30, icon: '🛢️' },
@@ -16,16 +33,16 @@ const services = [
 
 export default function Booking() {
   const [step, setStep] = useState(1);
-  const [selectedBike, setSelectedBike] = useState(null);
-  const [selectedServices, setSelectedServices] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [selectedTime, setSelectedTime] = useState(null); // Nuevo estado para la hora
+  const [selectedBike, setSelectedBike] = useState<Bike | null>(null);
+  const [selectedServices, setSelectedServices] = useState<Service[]>([]);
+  const [selectedDate, setSelectedDate] = useState<number | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null); // Nuevo estado para la hora
   const [showSuccess, setShowSuccess] = useState(false); // Estado para el Pop-up
 
   const totalPrice = selectedServices.reduce((acc, s) => acc + s.price, 0);
   const totalDuration = selectedServices.reduce((acc, s) => acc + s.duration, 0);
 
-  const toggleService = (service) => {
+  const toggleService = (service: Service) => {
     if (selectedServices.find(s => s.id === service.id)) {
       setSelectedServices(selectedServices.filter(s => s.id !== service.id));
     } else {
@@ -33,7 +50,7 @@ export default function Booking() {
     }
   };
 
-  const formatDuration = (minutos) => {
+  const formatDuration = (minutos: number) => {
     const h = Math.floor(minutos / 60);
     const m = minutos % 60;
     return h > 0 ? `${h}h ${m > 0 ? m + 'm' : ''}` : `${m} min`;

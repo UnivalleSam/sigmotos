@@ -240,6 +240,7 @@ local_settings.py
 .env.*
 *.key
 secrets/
+.agent
 
 # --- IDEs y Editores ---
 .vscode/

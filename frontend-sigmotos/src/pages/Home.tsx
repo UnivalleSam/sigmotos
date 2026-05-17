@@ -39,7 +39,7 @@ export default function Home() {
           </p>
           <div className="hero-actions">
             <button onClick={() => navigate("/booking")} className="btn-primary">Agendar servicio</button>
-            <button className="btn-ghost">Ver servicios →</button>
+            <button onClick={() => navigate("/maintenance")} className="btn-ghost">Consultar mantenimiento →</button>
           </div>
 
           <div className="hero-stats">
@@ -103,7 +103,7 @@ export default function Home() {
           <div className="tech-visual">
             <div className="tech-card">
               <div className="tech-card-header">
-                
+
                 <span className="tc-title">Panel de control</span>
               </div>
               <div className="tc-row"><span className="tc-label">Motos en taller</span><span className="tc-val orange">12</span></div>
