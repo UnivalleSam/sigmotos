@@ -99,6 +99,17 @@ const SigmotosAuth = () => {
               <span className="submit-arrow">→</span>
             </button>
 
+            {isLogin && (
+              <button 
+                type="button" 
+                onClick={() => navigate("/dashboard")}
+                className="auth-submit-admin"
+              >
+                <span>Continuar como Administrador • Bypass</span>
+                <span className="submit-arrow">⇁</span>
+              </button>
+            )}
+
           </form>
 
           <div className="auth-footer">
