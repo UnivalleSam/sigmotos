@@ -1,25 +1,42 @@
+import { useState } from "react";
 import "../styles/home.css";
 import motoBg from "../assets/moto.jpeg";
 import { useNavigate } from "react-router-dom";
 
 export default function Home() {
   const navigate = useNavigate();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  
   return (
     <div className="home">
 
       {/* NAVBAR */}
       <nav className="navbar">
-        <div className="navbar-logo">
+        <div className="navbar-logo" onClick={() => navigate("/home")} style={{ cursor: "pointer" }}>
           <span className="logo-sig">SIG</span>
           <span className="logo-motos">MOTOS</span>
         </div>
-        <ul className="navbar-links">
-          <li>Inicio</li>
-          <li>Servicios</li>
-          <li>Inventario</li>
-          <li>Citas</li>
+        
+        {/* HAMBURGER BUTTON */}
+        <button 
+          className={`navbar-toggle ${isMenuOpen ? "active" : ""}`} 
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          aria-label="Toggle menu"
+        >
+          <span className="bar"></span>
+          <span className="bar"></span>
+          <span className="bar"></span>
+        </button>
+
+        <ul className={`navbar-links ${isMenuOpen ? "active" : ""}`}>
+          <li onClick={() => { navigate("/home"); setIsMenuOpen(false); }}>Inicio</li>
+          <li onClick={() => { navigate("/booking"); setIsMenuOpen(false); }}>Agendar Cita</li>
+          <li onClick={() => { navigate("/maintenance"); setIsMenuOpen(false); }}>Mantenimiento</li>
+          <li className="mobile-nav-item">
+            <button onClick={() => { navigate("/dashboard"); setIsMenuOpen(false); }} className="btn-primary w-full">Dashboard</button>
+          </li>
         </ul>
-        <button className="btn-primary">Dashboard</button>
+        <button onClick={() => navigate("/dashboard")} className="btn-primary desktop-nav-btn">Dashboard</button>
       </nav>
 
       {/* HERO */}

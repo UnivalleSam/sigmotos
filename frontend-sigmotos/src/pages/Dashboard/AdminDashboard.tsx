@@ -180,65 +180,84 @@ export default function AdminDashboard() {
       }
     }, 1200);
   };
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#080808] text-[#e8e8e8] font-sans antialiased selection:bg-[#ff5a00] selection:text-white flex flex-col md:flex-row">
       {/* ────────────────────────────────────────────────────────
          SIDEBAR NAVIGATION
          ──────────────────────────────────────────────────────── */}
-      <aside className="w-full md:w-64 bg-[#111] border-b md:border-b-0 md:border-r border-white/5 flex flex-col justify-between shrink-0">
-        <div className="p-6 space-y-8">
-          {/* Logo */}
-          <div className="flex items-center justify-between">
-            <div className="font-['Barlow_Condensed'] text-2xl font-extrabold tracking-widest text-[#e8e8e8]">
-              <span className="text-[#ff5a00]">SIG</span>MOTOS
-            </div>
-            <span className="bg-[#ff5a00]/10 border border-[#ff5a00]/30 text-[#ff5a00] text-[8px] font-mono px-2 py-0.5 uppercase tracking-widest rounded animate-pulse">
+      <aside className="w-full md:w-64 bg-[#111] border-b md:border-b-0 md:border-r border-white/5 flex flex-col shrink-0 transition-all duration-300">
+        {/* Mobile Header Bar */}
+        <div className="p-6 flex items-center justify-between border-b border-white/5 md:border-b-0">
+          <div className="font-['Barlow_Condensed'] text-2xl font-extrabold tracking-widest text-[#e8e8e8]">
+            <span className="text-[#ff5a00]">SIG</span>MOTOS
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="bg-[#ff5a00]/10 border border-[#ff5a00]/30 text-[#ff5a00] text-[8px] font-mono px-2 py-0.5 uppercase tracking-widest rounded hidden sm:inline-block">
               Admin HUD
             </span>
+            {/* Toggle Hamburger Button */}
+            <button 
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="md:hidden flex flex-col justify-between w-6 h-4 bg-transparent border-none cursor-pointer p-0 group"
+              aria-label="Toggle admin menu"
+            >
+              <span className={`w-full h-0.5 bg-white transition-all ${isMobileMenuOpen ? 'rotate-45 translate-y-[7px]' : ''}`} />
+              <span className={`w-full h-0.5 bg-white transition-all ${isMobileMenuOpen ? 'opacity-0' : ''}`} />
+              <span className={`w-full h-0.5 bg-white transition-all ${isMobileMenuOpen ? '-rotate-45 -translate-y-[7px]' : ''}`} />
+            </button>
           </div>
-
-          {/* User Cockpit */}
-          <div className="bg-[#080808] border border-white/5 p-4 relative overflow-hidden">
-            <p className="text-[8px] font-mono text-gray-500 uppercase tracking-widest font-bold">OPERADOR ACTIVO</p>
-            <h4 className="font-['Barlow_Condensed'] text-base font-bold text-white uppercase mt-1">José Cárdenas</h4>
-            <p className="text-[9px] text-[#ff5a00] font-mono uppercase tracking-tighter">ID: ADMIN-SYS-01</p>
-            <div className="absolute right-3 bottom-3 text-xs opacity-20 select-none">⚙️</div>
-          </div>
-
-          {/* Navigation Links */}
-          <nav className="flex flex-col gap-1">
-            {[
-              { id: "citas", label: "Control de Citas", icon: "🗓️" },
-              { id: "personal", label: "Personal & Técnicos", icon: "👤" },
-              { id: "finanzas", label: "Finanzas & Ganancias", icon: "📊" },
-              { id: "inventario", label: "Inventario Repuestos", icon: "📦" },
-              { id: "reportes", label: "Auditoría & Reportes", icon: "📋" },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-3 px-4 py-3 text-xs font-bold uppercase tracking-wider transition-all border-l-2 text-left rounded-none ${
-                  activeTab === tab.id
-                    ? "bg-[#ff5a00]/10 border-[#ff5a00] text-[#ff5a00] shadow-[inset_4px_0_10px_rgba(255,90,0,0.05)]"
-                    : "border-transparent text-gray-500 hover:text-white hover:bg-white/5"
-                }`}
-              >
-                <span>{tab.icon}</span>
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </nav>
         </div>
 
-        {/* Footer actions */}
-        <div className="p-6 border-t border-white/5 space-y-4">
-          <button
-            onClick={() => navigate("/login")}
-            className="w-full bg-white/5 hover:bg-red-500/10 border border-white/5 hover:border-red-500/30 text-gray-400 hover:text-red-500 font-extrabold uppercase py-3 text-[10px] tracking-widest transition-all text-center"
-          >
-            Cerrar Sesión ⇁
-          </button>
+        {/* Menu Items Container (collapsible on mobile, always visible on md+) */}
+        <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-col justify-between flex-grow transition-all`}>
+          <div className="p-6 pt-6 md:pt-6 space-y-6 md:space-y-8">
+            {/* User Cockpit */}
+            <div className="bg-[#080808] border border-white/5 p-4 relative overflow-hidden">
+              <p className="text-[8px] font-mono text-gray-500 uppercase tracking-widest font-bold">OPERADOR ACTIVO</p>
+              <h4 className="font-['Barlow_Condensed'] text-base font-bold text-white uppercase mt-1">José Cárdenas</h4>
+              <p className="text-[9px] text-[#ff5a00] font-mono uppercase tracking-tighter">ID: ADMIN-SYS-01</p>
+              <div className="absolute right-3 bottom-3 text-xs opacity-20 select-none">⚙️</div>
+            </div>
+
+            {/* Navigation Links */}
+            <nav className="flex flex-col gap-1">
+              {[
+                { id: "citas", label: "Control de Citas", icon: "🗓️" },
+                { id: "personal", label: "Personal & Técnicos", icon: "👤" },
+                { id: "finanzas", label: "Finanzas & Ganancias", icon: "📊" },
+                { id: "inventario", label: "Inventario Repuestos", icon: "📦" },
+                { id: "reportes", label: "Auditoría & Reportes", icon: "📋" },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id as any);
+                    setIsMobileMenuOpen(false); // Close menu on click
+                  }}
+                  className={`flex items-center gap-3 px-4 py-3 text-xs font-bold uppercase tracking-wider transition-all border-l-2 text-left rounded-none cursor-pointer ${
+                    activeTab === tab.id
+                      ? "bg-[#ff5a00]/10 border-[#ff5a00] text-[#ff5a00] shadow-[inset_4px_0_10px_rgba(255,90,0,0.05)]"
+                      : "border-transparent text-gray-500 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          {/* Footer actions */}
+          <div className="p-6 border-t border-white/5 space-y-4">
+            <button
+              onClick={() => navigate("/login")}
+              className="w-full bg-white/5 hover:bg-red-500/10 border border-white/5 hover:border-red-500/30 text-gray-400 hover:text-red-500 font-extrabold uppercase py-3 text-[10px] tracking-widest transition-all text-center cursor-pointer"
+            >
+              Cerrar Sesión ⇁
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -338,13 +357,13 @@ export default function AdminDashboard() {
                           <>
                             <button
                               onClick={() => handleUpdateStatus(appt.id, "taller")}
-                              className="bg-[#ff5a00] hover:bg-[#ff7a2a] text-black font-extrabold uppercase py-2 px-4 text-[9px] tracking-wider transition-all"
+                              className="bg-[#ff5a00] hover:bg-[#ff7a2a] text-black font-extrabold uppercase py-2.5 px-5 text-[10px] tracking-wider transition-all cursor-pointer hover:scale-[1.02]"
                             >
                               Ingreso a Taller
                             </button>
                             <button
                               onClick={() => handleUpdateStatus(appt.id, "completada")}
-                              className="bg-white/5 hover:bg-white/10 border border-white/5 text-gray-400 hover:text-white font-extrabold uppercase py-2 px-4 text-[9px] tracking-wider transition-all"
+                              className="bg-white/5 hover:bg-white/10 border border-white/5 text-gray-400 hover:text-white font-extrabold uppercase py-2.5 px-5 text-[10px] tracking-wider transition-all cursor-pointer hover:scale-[1.02]"
                             >
                               Completar
                             </button>
@@ -358,7 +377,7 @@ export default function AdminDashboard() {
                             </span>
                             <button
                               onClick={() => handleUpdateStatus(appt.id, "completada")}
-                              className="bg-green-500 hover:bg-green-600 text-black font-extrabold uppercase py-2 px-4 text-[9px] tracking-wider transition-all"
+                              className="bg-green-500 hover:bg-green-600 text-black font-extrabold uppercase py-2.5 px-5 text-[10px] tracking-wider transition-all cursor-pointer hover:scale-[1.02]"
                             >
                               Listo para Entrega ✓
                             </button>
@@ -495,7 +514,7 @@ export default function AdminDashboard() {
                           placeholder="Ej: Marcos Silva"
                           value={newEmpName}
                           onChange={(e) => setNewEmpName(e.target.value)}
-                          className="w-full bg-[#080808] border border-white/10 hover:border-white/20 focus:border-[#ff5a00]/50 focus:outline-none px-3 py-2.5 text-xs text-[#e8e8e8] placeholder-gray-700 transition-all rounded-none"
+                          className="w-full bg-[#080808] border border-white/10 hover:border-white/20 focus:border-[#ff5a00]/50 focus:outline-none px-4 py-3 text-xs md:text-sm text-[#e8e8e8] placeholder-gray-700 transition-all rounded-none"
                         />
                       </div>
 
@@ -506,7 +525,7 @@ export default function AdminDashboard() {
                           placeholder="marcos@sigmotos.com"
                           value={newEmpEmail}
                           onChange={(e) => setNewEmpEmail(e.target.value)}
-                          className="w-full bg-[#080808] border border-white/10 hover:border-white/20 focus:border-[#ff5a00]/50 focus:outline-none px-3 py-2.5 text-xs text-[#e8e8e8] placeholder-gray-700 transition-all rounded-none"
+                          className="w-full bg-[#080808] border border-white/10 hover:border-white/20 focus:border-[#ff5a00]/50 focus:outline-none px-4 py-3 text-xs md:text-sm text-[#e8e8e8] placeholder-gray-700 transition-all rounded-none"
                         />
                       </div>
 
@@ -515,7 +534,7 @@ export default function AdminDashboard() {
                         <select
                           value={newEmpRole}
                           onChange={(e) => setNewEmpRole(e.target.value as any)}
-                          className="w-full bg-[#080808] border border-white/10 focus:border-[#ff5a00]/50 focus:outline-none px-3 py-2.5 text-xs text-[#e8e8e8] transition-all rounded-none"
+                          className="w-full bg-[#080808] border border-white/10 focus:border-[#ff5a00]/50 focus:outline-none px-4 py-3 text-xs md:text-sm text-[#e8e8e8] transition-all rounded-none"
                         >
                           <option value="Mecánico">Mecánico Operador</option>
                           <option value="Recepcionista">Recepcionista Taller</option>
@@ -530,7 +549,7 @@ export default function AdminDashboard() {
                           placeholder="Ej: Inyección Electrónica"
                           value={newEmpSpec}
                           onChange={(e) => setNewEmpSpec(e.target.value)}
-                          className="w-full bg-[#080808] border border-white/10 hover:border-white/20 focus:border-[#ff5a00]/50 focus:outline-none px-3 py-2.5 text-xs text-[#e8e8e8] placeholder-gray-700 transition-all rounded-none"
+                          className="w-full bg-[#080808] border border-white/10 hover:border-white/20 focus:border-[#ff5a00]/50 focus:outline-none px-4 py-3 text-xs md:text-sm text-[#e8e8e8] placeholder-gray-700 transition-all rounded-none"
                         />
                       </div>
 
@@ -540,7 +559,7 @@ export default function AdminDashboard() {
 
                       <button
                         type="submit"
-                        className="w-full bg-[#ff5a00] hover:bg-[#ff7a2a] text-black font-extrabold uppercase py-3 tracking-widest text-[10px] transition-all shadow-[0_5px_15px_rgba(255,90,0,0.1)] flex items-center justify-center gap-2"
+                        className="w-full bg-[#ff5a00] hover:bg-[#ff7a2a] text-black font-extrabold uppercase py-4 tracking-widest text-xs transition-all shadow-[0_5px_15px_rgba(255,90,0,0.15)] flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.01]"
                       >
                         Añadir al Personal →
                       </button>

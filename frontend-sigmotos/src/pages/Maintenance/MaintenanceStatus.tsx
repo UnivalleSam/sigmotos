@@ -256,7 +256,7 @@ export default function MaintenanceStatus() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
               transition={{ duration: 0.4 }}
-              className="w-full max-w-4xl mx-auto grid lg:grid-cols-12 gap-8 items-center py-6"
+              className="w-full max-w-5xl lg:max-w-6xl mx-auto grid lg:grid-cols-12 gap-8 items-center py-6"
             >
               {/* Left Column: Title and telemetry vibes */}
               <div className="lg:col-span-7 space-y-6">
@@ -313,7 +313,7 @@ export default function MaintenanceStatus() {
                               value={searchQuery}
                               onChange={(e) => setSearchQuery(e.target.value)}
                               onKeyDown={(e) => e.key === "Enter" && handleSearch(searchQuery)}
-                              className="w-full bg-[#080808] border border-white/10 hover:border-white/20 focus:border-[#ff5a00]/50 focus:outline-none px-4 py-3.5 font-mono text-lg uppercase tracking-widest text-[#e8e8e8] placeholder-gray-700 transition-all rounded-none"
+                              className="w-full bg-[#080808] border border-white/10 hover:border-white/20 focus:border-[#ff5a00]/50 focus:outline-none px-5 py-4.5 font-mono text-xl uppercase tracking-widest text-[#e8e8e8] placeholder-gray-700 transition-all rounded-none"
                             />
                             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 font-mono text-xs animate-pulse">
                               █
@@ -326,7 +326,7 @@ export default function MaintenanceStatus() {
 
                         <button
                           onClick={() => handleSearch(searchQuery)}
-                          className="w-full bg-[#ff5a00] hover:bg-[#ff7a2a] text-black font-extrabold uppercase py-4 tracking-[0.2em] text-xs transition-all shadow-[0_10px_20px_rgba(255,90,0,0.15)] hover:shadow-[0_10px_25px_rgba(255,90,0,0.3)] flex items-center justify-center gap-2"
+                          className="w-full bg-[#ff5a00] hover:bg-[#ff7a2a] text-black font-extrabold uppercase py-5 tracking-[0.25em] text-sm transition-all shadow-[0_10px_20px_rgba(255,90,0,0.2)] hover:shadow-[0_12px_30px_rgba(255,90,0,0.45)] flex items-center justify-center gap-2 hover:scale-[1.01] cursor-pointer"
                         >
                           Conectar Telemetría
                           <span className="text-lg">⇁</span>
@@ -681,7 +681,7 @@ export default function MaintenanceStatus() {
                     <button
                       onClick={handleSimulateReport}
                       disabled={isGeneratingReport}
-                      className="bg-white hover:bg-[#ff5a00] text-black hover:text-white font-extrabold uppercase px-6 py-3 text-[10px] tracking-widest transition-all flex items-center gap-2"
+                      className="bg-white hover:bg-[#ff5a00] text-black hover:text-white font-extrabold uppercase px-8 py-4 text-xs tracking-widest transition-all flex items-center gap-2 cursor-pointer hover:scale-[1.02]"
                       style={{ clipPath: "polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%)" }}
                     >
                       {isGeneratingReport ? "Generando Telemetría..." : "Descargar Reporte PDF →"}
