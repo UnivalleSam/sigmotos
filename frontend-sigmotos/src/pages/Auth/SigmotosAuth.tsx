@@ -8,10 +8,72 @@ const SigmotosAuth = () => {
   const [remember, setRemember] = useState(false);
   const [formData, setFormData] = useState({ email: "", password: "", name: "" });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Datos:", formData);
-    navigate("/home");
+
+    try {
+
+      // LOGIN
+      if (isLogin) {
+
+        const response = await fetch("http://localhost:8081/auth/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Credenciales incorrectas");
+        }
+
+        const data = await response.json();
+
+        console.log("Login exitoso:", data);
+
+        // Guardar usuario si quieres
+        localStorage.setItem("user", JSON.stringify(data));
+
+        navigate("/home");
+
+      } 
+      
+      // REGISTER
+      else {
+
+        const response = await fetch("http://localhost:8081/auth/register", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            password: formData.password,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Error al registrar usuario");
+        }
+
+        const data = await response.json();
+
+        console.log("Usuario registrado:", data);
+
+        alert("Usuario registrado correctamente");
+
+        setIsLogin(true);
+      }
+
+    } catch (error) {
+      console.error(error);
+      alert("Ocurrió un error");
+    }
   };
 
   return (
