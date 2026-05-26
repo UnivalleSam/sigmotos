@@ -40,8 +40,8 @@ const SigmotosAuth = () => {
 
         navigate("/home");
 
-      } 
-      
+      }
+
       // REGISTER
       else {
 
@@ -162,8 +162,8 @@ const SigmotosAuth = () => {
             </button>
 
             {isLogin && (
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => navigate("/dashboard")}
                 className="auth-submit-admin"
               >

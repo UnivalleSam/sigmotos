@@ -32,6 +32,7 @@ export default function Home() {
           <li onClick={() => { navigate("/home"); setIsMenuOpen(false); }}>Inicio</li>
           <li onClick={() => { navigate("/booking"); setIsMenuOpen(false); }}>Agendar Cita</li>
           <li onClick={() => { navigate("/maintenance"); setIsMenuOpen(false); }}>Mantenimiento</li>
+          <li onClick={() => { navigate("/profile"); setIsMenuOpen(false); }}>Mi Perfil</li>
           <li className="mobile-nav-item">
             <button onClick={() => { navigate("/dashboard"); setIsMenuOpen(false); }} className="btn-primary w-full">Dashboard</button>
           </li>

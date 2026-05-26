@@ -4,6 +4,9 @@ import SigmotosAuth from "./pages/Auth/SigmotosAuth";
 import Booking from "./pages/Booking/booking";
 import MaintenanceStatus from "./pages/Maintenance/MaintenanceStatus";
 import AdminDashboard from "./pages/Dashboard/AdminDashboard";
+import UserProfile from "./pages/Profile/UserProfile";
+import MyMotos from "./pages/MyMotos/MyMotos";
+import ServiceHistory from "./pages/History/ServiceHistory";
 
 function App() {
   return (
@@ -15,6 +18,10 @@ function App() {
         <Route path="/booking" element={<Booking />} />
         <Route path="/maintenance" element={<MaintenanceStatus />} />
         <Route path="/dashboard" element={<AdminDashboard />} />
+        <Route path="/profile" element={<UserProfile />} />
+        <Route path="/my-motos" element={<MyMotos />} />
+        <Route path="/history" element={<ServiceHistory />} />
+        <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
     </BrowserRouter>
   );
