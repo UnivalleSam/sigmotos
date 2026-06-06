@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import AppointmentsBoard from "./AppointmentsBoard";
 
 // ── INTERFACES ───────────────────────────────────────────────
 interface Appointment {
@@ -45,6 +46,14 @@ interface FinanceReceipt {
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"citas" | "personal" | "finanzas" | "inventario" | "reportes">("citas");
+
+  // ── ESTADO 0: CITAS REALES (desde AppointmentsBoard) ─────────
+  const [realAppointmentTotal, setRealAppointmentTotal] = useState(0);
+  const [realAppointmentActive, setRealAppointmentActive] = useState(0);
+  const handleAppointmentCount = useCallback((total: number, active: number) => {
+    setRealAppointmentTotal(total);
+    setRealAppointmentActive(active);
+  }, []);
 
   // ── ESTADO 1: CONTROL DE CITAS ───────────────────
   const [appointments, setAppointments] = useState<Appointment[]>([
@@ -155,7 +164,7 @@ export default function AdminDashboard() {
   };
 
   const NAV_ITEMS = [
-    { id: "citas", label: "Control de Citas", icon: "🗓️", count: appointments.filter(a => a.status !== "completada").length },
+    { id: "citas", label: "Control de Citas", icon: "🗓️", count: realAppointmentActive },
     { id: "personal", label: "Personal & Técnicos", icon: "👤", count: employees.length },
     { id: "finanzas", label: "Finanzas & Ganancias", icon: "📊", count: null },
     { id: "inventario", label: "Inventario Repuestos", icon: "📦", count: parts.filter(p => p.stock < 10).length },
@@ -282,17 +291,17 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Citas de hoy */}
+          {/* Citas de hoy — datos reales desde la API */}
           <div style={{ ...kpiCard, borderBottom: "3px solid #333" }}>
-            <span style={kpiLabel}>Citas de Hoy</span>
+            <span style={kpiLabel}>Citas Registradas</span>
             <p style={{ ...kpiNum, color: "#e8e8e8" }}>
-              {appointments.filter(a => a.status === "agendada" || a.status === "taller").length} ACTIVAS
+              {realAppointmentActive} ACTIVAS
             </p>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
               <motion.span animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.8, repeat: Infinity }}
                 style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "#ff5a00", display: "inline-block", flexShrink: 0 }} />
               <span style={{ color: "#ff5a00", fontSize: 10, fontFamily: "monospace" }}>
-                {appointments.filter(a => a.status === "taller").length} en taller ahora
+                {realAppointmentTotal} en total
               </span>
             </div>
           </div>
@@ -316,122 +325,11 @@ export default function AdminDashboard() {
                     </h2>
                   </div>
                   <span style={{ color: "#333", fontSize: 11, fontFamily: "monospace", textTransform: "uppercase" as const, letterSpacing: "0.08em" }}>
-                    PANEL ACTIVO
+                    {realAppointmentTotal} citas · {realAppointmentActive} activas
                   </span>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {appointments.map(appt => (
-                    <motion.div key={appt.id} layout
-                      style={{
-                        backgroundColor: "#111", border: "1px solid #1e1e1e", borderRadius: 8, overflow: "hidden",
-                        borderLeft: `3px solid ${appt.status === "taller" ? "#ff5a00" : appt.status === "completada" ? "rgba(74,222,128,0.5)" : "#2a2a2a"}`,
-                      }}>
-                      <div style={{ padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" as const, gap: 16 }}>
-                        {/* Left: info */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" as const }}>
-                          <span style={{ fontFamily: "monospace", fontSize: 11, backgroundColor: "#0d0d0d", border: "1px solid #2a2a2a", padding: "4px 10px", borderRadius: 4, color: "#555", flexShrink: 0 }}>
-                            {appt.id}
-                          </span>
-                          <div>
-                            <p style={{ fontSize: 14, fontWeight: 700, color: "#e8e8e8", textTransform: "uppercase" as const, letterSpacing: "0.04em", margin: 0 }}>{appt.customer}</p>
-                            <p style={{ fontSize: 11, color: "#555", textTransform: "uppercase" as const, letterSpacing: "0.06em", margin: "3px 0 0" }}>{appt.bike}</p>
-                          </div>
-                          <div>
-                            <p style={{ fontSize: 12, fontFamily: "monospace", color: "#aaa", margin: 0 }}>{appt.date} · {appt.time}</p>
-                            <p style={{ fontSize: 11, color: "#555", textTransform: "uppercase" as const, margin: "3px 0 0" }}>
-                              {appt.service} ·{" "}
-                              <span style={{ color: "#ff5a00", fontWeight: 700 }}>${appt.price.toLocaleString("es-CO")} COP</span>
-                            </p>
-                          </div>
-                          <div style={{ backgroundColor: "#0d0d0d", border: "1px solid #1e1e1e", padding: "6px 12px", borderRadius: 4, display: "flex", alignItems: "center", gap: 6 }}>
-                            <span>🔧</span>
-                            <span style={{ fontFamily: "monospace", fontSize: 11, color: "#888" }}>{appt.mechanic}</span>
-                          </div>
-                        </div>
-
-                        {/* Right: actions */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" as const, flexShrink: 0 }}>
-                          {appt.status === "agendada" && (
-                            <>
-                              <button onClick={() => handleUpdateStatus(appt.id, "taller")}
-                                style={{ backgroundColor: "#ff5a00", border: "none", color: "#fff", fontWeight: 700, fontSize: 11, textTransform: "uppercase" as const, letterSpacing: "0.06em", padding: "10px 18px", borderRadius: 5, cursor: "pointer", transition: "background 0.2s" }}
-                                onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#ff7a2a"}
-                                onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#ff5a00"}>
-                                Ingreso a Taller
-                              </button>
-                              <button onClick={() => handleUpdateStatus(appt.id, "completada")}
-                                style={{ backgroundColor: "transparent", border: "1px solid #2a2a2a", color: "#888", fontWeight: 700, fontSize: 11, textTransform: "uppercase" as const, letterSpacing: "0.06em", padding: "10px 18px", borderRadius: 5, cursor: "pointer", transition: "all 0.2s" }}
-                                onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = "#4ade80"; b.style.color = "#4ade80"; }}
-                                onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = "#2a2a2a"; b.style.color = "#888"; }}>
-                                Completar
-                              </button>
-                            </>
-                          )}
-
-                          {appt.status === "taller" && (
-                            <>
-                              <span style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.08em", fontFamily: "monospace", fontWeight: 700, color: "#ff5a00", backgroundColor: "rgba(255,90,0,0.1)", border: "1px solid rgba(255,90,0,0.3)", padding: "8px 14px", borderRadius: 4 }}>
-                                🟠 En Reparación
-                              </span>
-                              <button onClick={() => handleUpdateStatus(appt.id, "completada")}
-                                style={{ backgroundColor: "#4ade80", border: "none", color: "#000", fontWeight: 700, fontSize: 11, textTransform: "uppercase" as const, letterSpacing: "0.06em", padding: "10px 18px", borderRadius: 5, cursor: "pointer", transition: "background 0.2s" }}
-                                onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#22c55e"}
-                                onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#4ade80"}>
-                                Listo para Entrega ✓
-                              </button>
-                            </>
-                          )}
-
-                          {appt.status === "completada" && (
-                            <span style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.08em", fontFamily: "monospace", fontWeight: 700, color: "#4ade80", backgroundColor: "rgba(74,222,128,0.1)", border: "1px solid rgba(74,222,128,0.3)", padding: "8px 14px", borderRadius: 4 }}>
-                              🟢 Retirado y Cerrado
-                            </span>
-                          )}
-
-                          {appt.status !== "completada" && (
-                            <div style={{ position: "relative" as const }}>
-                              <button
-                                onClick={() => setAssigningTktId(assigningTktId === appt.id ? null : appt.id)}
-                                style={{ backgroundColor: "transparent", border: "1px solid #2a2a2a", color: "#555", fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", padding: "10px 14px", borderRadius: 5, cursor: "pointer", transition: "all 0.2s" }}
-                                onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = "#555"; b.style.color = "#aaa"; }}
-                                onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = "#2a2a2a"; b.style.color = "#555"; }}>
-                                Reasignar ▾
-                              </button>
-                              {assigningTktId === appt.id && (
-                                <div style={{ position: "absolute" as const, right: 0, marginTop: 4, width: 200, backgroundColor: "#161616", border: "1px solid #2a2a2a", borderRadius: 6, zIndex: 30, overflow: "hidden" }}>
-                                  {employees.filter(e => e.role === "Mecánico").map(mech => (
-                                    <button key={mech.id} onClick={() => handleReassignMechanic(appt.id, mech.name)}
-                                      style={{ width: "100%", textAlign: "left" as const, fontFamily: "monospace", fontSize: 11, color: "#888", padding: "10px 14px", background: "none", border: "none", borderBottom: "1px solid #1e1e1e", cursor: "pointer", transition: "all 0.15s", display: "block" }}
-                                      onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.backgroundColor = "rgba(255,90,0,0.08)"; b.style.color = "#e8e8e8"; }}
-                                      onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.backgroundColor = "transparent"; b.style.color = "#888"; }}>
-                                      {mech.name}
-                                      <span style={{ marginLeft: 8, fontSize: 9, color: mech.status === "ocupado" ? "#ff5a00" : "#4ade80" }}>
-                                        {mech.status === "ocupado" ? "· Ocupado" : "· Libre"}
-                                      </span>
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Progress bar for "taller" */}
-                      {appt.status === "taller" && (
-                        <div style={{ height: 3, width: "100%", backgroundColor: "#0a0a0a" }}>
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: "65%" }}
-                            transition={{ duration: 1.5, ease: "easeOut" }}
-                            style={{ height: "100%", background: "linear-gradient(to right, #ff5a00, #ff8c00)" }}
-                          />
-                        </div>
-                      )}
-                    </motion.div>
-                  ))}
-                </div>
+                <AppointmentsBoard onCountChange={handleAppointmentCount} />
               </motion.div>
             )}
 
