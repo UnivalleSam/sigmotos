@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { getVehiclesByOwner, createVehicle, createAppointment } from "../../services/api";
 
 interface Bike { brand: string; model: string; year: string; }
 interface Service { id: string; label: string; price: number; duration: number; icon: string; }
@@ -38,11 +39,146 @@ export default function Booking() {
   const [time, setTime] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const bike: Bike | null = brand && model ? { brand, model, year } : null;
+  // User/Vehicle management states
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const userId = storedUser.id;
+
+  const [userVehicles, setUserVehicles] = useState<any[]>([]);
+  const [loadingVehicles, setLoadingVehicles] = useState(false);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
+  const [vehicleSelectionMode, setVehicleSelectionMode] = useState<"existing" | "new">("existing");
+  const [plate, setPlate] = useState("");
+  const [comments, setComments] = useState("");
+  const [savingAppointment, setSavingAppointment] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [createdAppointment, setCreatedAppointment] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (userId) {
+      setLoadingVehicles(true);
+      getVehiclesByOwner(Number(userId))
+        .then((vehicles) => {
+          setUserVehicles(vehicles);
+          if (vehicles && vehicles.length > 0) {
+            setSelectedVehicleId(vehicles[0].id);
+            setVehicleSelectionMode("existing");
+          } else {
+            setVehicleSelectionMode("new");
+          }
+        })
+        .catch((err) => console.error("Error loading user vehicles", err))
+        .finally(() => setLoadingVehicles(false));
+    } else {
+      setVehicleSelectionMode("new");
+    }
+  }, [userId]);
+
+  const formatAppointmentDate = (day: number, timeStr: string): string => {
+    let hourStr = "08:00:00";
+    if (timeStr.includes("08:00 AM")) hourStr = "08:00:00";
+    else if (timeStr.includes("10:30 AM")) hourStr = "10:30:00";
+    else if (timeStr.includes("02:00 PM")) hourStr = "14:00:00";
+    else if (timeStr.includes("04:30 PM")) hourStr = "16:30:00";
+    
+    const now = new Date();
+    const yearStr = now.getFullYear();
+    const monthStr = String(now.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(day).padStart(2, '0');
+    return `${yearStr}-${monthStr}-${dayStr}T${hourStr}`;
+  };
+
+  const handleConfirmBooking = async () => {
+    if (!date || !time) return;
+
+    setSavingAppointment(true);
+    setErrorMsg(null);
+
+    try {
+      let finalVehicleId = selectedVehicleId;
+
+      if (vehicleSelectionMode === "new") {
+        if (!brand || !model || !plate) {
+          throw new Error("Por favor completa los datos de la moto.");
+        }
+        // Registrar la moto en el backend
+        const newVehicle = await createVehicle({
+          plate: plate.trim().toUpperCase(),
+          brand,
+          model,
+          year: Number(year),
+          ownerId: userId ? Number(userId) : 1
+        });
+
+        if (!newVehicle || !newVehicle.id) {
+          throw new Error("No se pudo registrar la moto en el backend.");
+        }
+        finalVehicleId = newVehicle.id;
+      }
+
+      if (!finalVehicleId) {
+        throw new Error("No se pudo determinar el vehículo para la cita.");
+      }
+
+      // Preparar el motivo (reason)
+      const serviceLabels = services.map(s => s.label).join(", ");
+      const finalReason = comments.trim()
+        ? `${serviceLabels}. Notas: ${comments.trim()}`
+        : serviceLabels;
+
+      // Formatear la fecha
+      const apptDate = formatAppointmentDate(date, time);
+
+      // Crear la cita
+      const newAppt = await createAppointment({
+        clientId: userId ? Number(userId) : 1,
+        vehicleId: finalVehicleId,
+        appointmentDate: apptDate,
+        reason: finalReason,
+        status: "PENDING"
+      });
+
+      if (!newAppt) {
+        throw new Error("No se pudo crear la cita en el servidor.");
+      }
+
+      setCreatedAppointment(newAppt);
+      setShowSuccess(true);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err.message || "Error al procesar el agendamiento");
+    } finally {
+      setSavingAppointment(false);
+    }
+  };
+
+  const selectedExistingVehicle = vehicleSelectionMode === "existing"
+    ? userVehicles.find(v => v.id === selectedVehicleId)
+    : null;
+
+  const bike: Bike | null = vehicleSelectionMode === "existing"
+    ? (selectedExistingVehicle ? { brand: selectedExistingVehicle.brand, model: selectedExistingVehicle.model, year: String(selectedExistingVehicle.year) } : null)
+    : (brand && model ? { brand, model, year } : null);
+
+  const isVehicleStepValid = vehicleSelectionMode === "existing"
+    ? selectedVehicleId !== null
+    : (brand && model && plate.trim().length > 0);
+
   const total = services.reduce((a, s) => a + s.price, 0);
   const duration = services.reduce((a, s) => a + s.duration, 0);
   const fmtDur = (m: number) => { const h = Math.floor(m / 60), min = m % 60; return h > 0 ? `${h}h${min > 0 ? ` ${min}m` : ""}` : `${min} min`; };
   const toggleService = (s: Service) => setServices(prev => prev.find(x => x.id === s.id) ? prev.filter(x => x.id !== s.id) : [...prev, s]);
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonthVal = now.getMonth(); // 0-indexed
+  const capitalizedMonth = now.toLocaleString("es-CO", { month: "long" }).replace(/^\w/, (c) => c.toUpperCase());
+  const daysInMonth = new Date(currentYear, currentMonthVal + 1, 0).getDate();
+
+  const isPastDay = (d: number) => {
+    const dayDate = new Date(currentYear, currentMonthVal, d);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return dayDate < today;
+  };
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#080808", color: "#e8e8e8", fontFamily: "'Inter', sans-serif" }}>
@@ -80,8 +216,8 @@ export default function Booking() {
               <div style={{ backgroundColor: "#0d0d0d", border: "1px solid #1e1e1e", borderRadius: 6, padding: 16, marginBottom: 24, textAlign: "left" }}>
                 {[
                   ["Unidad", `${bike?.brand} ${bike?.model}`],
-                  ["Horario", `${date} Mayo, 2026 · ${time}`],
-                  ["Ticket ID", `#${Math.random().toString(36).substr(2, 8).toUpperCase()}`],
+                  ["Horario", `${date} ${capitalizedMonth}, ${currentYear} · ${time}`],
+                  ["Ticket ID", `#${createdAppointment?.id || 'N/A'}`],
                 ].map(([k, v]) => (
                   <div key={k} style={{ display: "flex", justifyContent: "space-between", fontFamily: "monospace", fontSize: 12, marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid #1a1a1a" }}>
                     <span style={{ color: "#555" }}>{k}</span>
@@ -112,82 +248,183 @@ export default function Booking() {
 
                 {/* Selección de moto */}
                 <div style={card}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, paddingBottom: 16, borderBottom: "1px solid #1a1a1a" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid #1a1a1a" }}>
                     <h3 style={sectionTitle}>Selección de vehículo</h3>
-                    <span style={{ backgroundColor: "#ff5a0015", border: "1px solid #ff5a0030", color: "#ff5a00", fontSize: 10, padding: "3px 10px", borderRadius: 3, fontFamily: "monospace", textTransform: "uppercase" }}>Filtro dinámico</span>
+                    <span style={{ backgroundColor: "#ff5a0015", border: "1px solid #ff5a0030", color: "#ff5a00", fontSize: 10, padding: "3px 10px", borderRadius: 3, fontFamily: "monospace", textTransform: "uppercase" }}>
+                      {vehicleSelectionMode === "existing" ? "Mis motos" : "Nueva moto"}
+                    </span>
                   </div>
 
-                  {/* Marca */}
-                  <div style={{ marginBottom: 20 }}>
-                    <label style={fieldLabel}>1. Marca</label>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
-                      {BRANDS.map(b => (
-                        <button key={b} onClick={() => { setBrand(b); setModel(""); }}
-                          style={{ padding: "10px 4px", fontSize: 12, fontWeight: 600, textAlign: "center", border: `1px solid ${brand === b ? "#ff5a00" : "#2a2a2a"}`, borderRadius: 5, backgroundColor: brand === b ? "#ff5a0015" : "#0d0d0d", color: brand === b ? "#ff5a00" : "#888", cursor: "pointer", transition: "all 0.2s" }}
-                          onMouseEnter={(e) => { if (brand !== b) { e.currentTarget.style.borderColor = "#3a3a3a"; e.currentTarget.style.color = "#e8e8e8"; } }}
-                          onMouseLeave={(e) => { if (brand !== b) { e.currentTarget.style.borderColor = "#2a2a2a"; e.currentTarget.style.color = "#888"; } }}>
-                          {b}
-                        </button>
-                      ))}
+                  {userId && userVehicles.length > 0 && (
+                    <div style={{ display: "flex", gap: 10, marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid #1a1a1a" }}>
+                      <button
+                        onClick={() => setVehicleSelectionMode("existing")}
+                        style={{
+                          flex: 1,
+                          padding: "10px",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          backgroundColor: vehicleSelectionMode === "existing" ? "#ff5a0015" : "#0d0d0d",
+                          color: vehicleSelectionMode === "existing" ? "#ff5a00" : "#888",
+                          border: `1px solid ${vehicleSelectionMode === "existing" ? "#ff5a00" : "#2a2a2a"}`,
+                          borderRadius: 5,
+                          cursor: "pointer",
+                          transition: "all 0.2s"
+                        }}
+                      >
+                        🏍️ Mis motos
+                      </button>
+                      <button
+                        onClick={() => setVehicleSelectionMode("new")}
+                        style={{
+                          flex: 1,
+                          padding: "10px",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          backgroundColor: vehicleSelectionMode === "new" ? "#ff5a0015" : "#0d0d0d",
+                          color: vehicleSelectionMode === "new" ? "#ff5a00" : "#888",
+                          border: `1px solid ${vehicleSelectionMode === "new" ? "#ff5a00" : "#2a2a2a"}`,
+                          borderRadius: 5,
+                          cursor: "pointer",
+                          transition: "all 0.2s"
+                        }}
+                      >
+                        ➕ Registrar nueva moto
+                      </button>
                     </div>
-                  </div>
-
-                  {/* Tipo */}
-                  <div style={{ marginBottom: 20 }}>
-                    <label style={fieldLabel}>2. Tipo</label>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
-                      {TYPES.map(t => (
-                        <button key={t} onClick={() => { setType(t); setModel(""); }}
-                          style={{ padding: "10px 4px", fontSize: 12, fontWeight: 600, textAlign: "center", border: `1px solid ${type === t ? "#ff5a00" : "#2a2a2a"}`, borderRadius: 5, backgroundColor: type === t ? "#ff5a0015" : "#0d0d0d", color: type === t ? "#ff5a00" : "#888", cursor: "pointer", transition: "all 0.2s" }}>
-                          {t}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Modelo */}
-                  {brand && type && (
-                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} style={{ paddingTop: 16, borderTop: "1px solid #1a1a1a" }}>
-                      <label style={fieldLabel}>3. Modelo</label>
-                      {(() => {
-                        const available = MODELS[brand]?.[type] || [];
-                        return available.length > 0 ? (
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-                            {available.map(m => (
-                              <button key={m} onClick={() => setModel(m)}
-                                style={{ padding: "12px 10px", textAlign: "left", border: `1px solid ${model === m ? "#ff5a00" : "#2a2a2a"}`, borderRadius: 5, backgroundColor: model === m ? "#ff5a0015" : "#0d0d0d", cursor: "pointer", transition: "all 0.2s" }}>
-                                <p style={{ color: "#ff5a00", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.07em", margin: "0 0 3px", fontFamily: "monospace" }}>{brand}</p>
-                                <p style={{ color: model === m ? "#e8e8e8" : "#888", fontSize: 13, fontWeight: 600, margin: 0 }}>{m}</p>
-                              </button>
-                            ))}
-                          </div>
-                        ) : (
-                          <input type="text" placeholder="Ingresa el modelo manualmente" value={model} onChange={(e) => setModel(e.target.value)}
-                            style={{ width: "100%", backgroundColor: "#0d0d0d", border: "1px solid #2a2a2a", borderRadius: 5, padding: "11px 14px", color: "#e8e8e8", fontSize: 14, outline: "none", boxSizing: "border-box" }}
-                            onFocus={(e) => (e.currentTarget.style.borderColor = "#ff5a00")}
-                            onBlur={(e) => (e.currentTarget.style.borderColor = "#2a2a2a")} />
-                        );
-                      })()}
-                    </motion.div>
                   )}
 
-                  {/* Moto configurada */}
-                  {brand && model && (
-                    <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
-                      style={{ marginTop: 16, backgroundColor: "#ff5a0010", border: "1px solid #ff5a0030", borderRadius: 6, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div>
-                        <p style={{ color: "#ff5a00", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.07em", margin: "0 0 3px", fontFamily: "monospace" }}>Vehículo configurado</p>
-                        <p style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 18, fontWeight: 700, margin: 0 }}>{brand} {model}</p>
-                        <p style={{ color: "#888", fontSize: 11, margin: "2px 0 0", fontFamily: "monospace" }}>Tipo: {type || "N/A"}</p>
+                  {loadingVehicles && (
+                    <p style={{ color: "#888", fontSize: 12, fontFamily: "monospace" }}>Cargando tus motos...</p>
+                  )}
+
+                  {vehicleSelectionMode === "existing" && !loadingVehicles && (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                      {userVehicles.map(v => (
+                        <button
+                          key={v.id}
+                          onClick={() => setSelectedVehicleId(v.id)}
+                          style={{
+                            padding: "14px",
+                            textAlign: "left",
+                            border: `1px solid ${selectedVehicleId === v.id ? "#ff5a00" : "#2a2a2a"}`,
+                            borderRadius: 6,
+                            backgroundColor: selectedVehicleId === v.id ? "#ff5a0010" : "#0d0d0d",
+                            cursor: "pointer",
+                            transition: "all 0.2s"
+                          }}
+                        >
+                          <p style={{ color: "#ff5a00", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.07em", margin: "0 0 3px", fontFamily: "monospace" }}>
+                            {v.plate}
+                          </p>
+                          <p style={{ color: selectedVehicleId === v.id ? "#e8e8e8" : "#888", fontSize: 14, fontWeight: 700, margin: 0 }}>
+                            {v.brand} {v.model}
+                          </p>
+                          <p style={{ color: "#555", fontSize: 11, margin: "2px 0 0", fontFamily: "monospace" }}>Año: {v.year}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {vehicleSelectionMode === "new" && (
+                    <>
+                      {/* Placa */}
+                      <div style={{ marginBottom: 20 }}>
+                        <label style={fieldLabel}>Placa de la moto (Requerido)</label>
+                        <input
+                          type="text"
+                          placeholder="Ej: ABC-123"
+                          value={plate}
+                          onChange={(e) => setPlate(e.target.value.toUpperCase())}
+                          style={{
+                            width: "100%",
+                            backgroundColor: "#0d0d0d",
+                            border: "1px solid #2a2a2a",
+                            borderRadius: 5,
+                            padding: "11px 14px",
+                            color: "#e8e8e8",
+                            fontSize: 14,
+                            outline: "none",
+                            boxSizing: "border-box"
+                          }}
+                          onFocus={(e) => (e.currentTarget.style.borderColor = "#ff5a00")}
+                          onBlur={(e) => (e.currentTarget.style.borderColor = "#2a2a2a")}
+                        />
                       </div>
-                      <div>
-                        <label style={{ color: "#555", fontSize: 10, display: "block", marginBottom: 4, textTransform: "uppercase" }}>Año</label>
-                        <select value={year} onChange={(e) => setYear(e.target.value)}
-                          style={{ backgroundColor: "#0d0d0d", border: "1px solid #2a2a2a", borderRadius: 4, padding: "6px 10px", color: "#e8e8e8", fontSize: 13, cursor: "pointer", outline: "none" }}>
-                          {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-                        </select>
+
+                      {/* Marca */}
+                      <div style={{ marginBottom: 20 }}>
+                        <label style={fieldLabel}>1. Marca</label>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
+                          {BRANDS.map(b => (
+                            <button key={b} onClick={() => { setBrand(b); setModel(""); }}
+                              style={{ padding: "10px 4px", fontSize: 12, fontWeight: 600, textAlign: "center", border: `1px solid ${brand === b ? "#ff5a00" : "#2a2a2a"}`, borderRadius: 5, backgroundColor: brand === b ? "#ff5a0015" : "#0d0d0d", color: brand === b ? "#ff5a00" : "#888", cursor: "pointer", transition: "all 0.2s" }}
+                              onMouseEnter={(e) => { if (brand !== b) { e.currentTarget.style.borderColor = "#3a3a3a"; e.currentTarget.style.color = "#e8e8e8"; } }}
+                              onMouseLeave={(e) => { if (brand !== b) { e.currentTarget.style.borderColor = "#2a2a2a"; e.currentTarget.style.color = "#888"; } }}>
+                              {b}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </motion.div>
+
+                      {/* Tipo */}
+                      <div style={{ marginBottom: 20 }}>
+                        <label style={fieldLabel}>2. Tipo</label>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+                          {TYPES.map(t => (
+                            <button key={t} onClick={() => { setType(t); setModel(""); }}
+                              style={{ padding: "10px 4px", fontSize: 12, fontWeight: 600, textAlign: "center", border: `1px solid ${type === t ? "#ff5a00" : "#2a2a2a"}`, borderRadius: 5, backgroundColor: type === t ? "#ff5a0015" : "#0d0d0d", color: type === t ? "#ff5a00" : "#888", cursor: "pointer", transition: "all 0.2s" }}>
+                              {t}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Modelo */}
+                      {brand && type && (
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} style={{ paddingTop: 16, borderTop: "1px solid #1a1a1a" }}>
+                          <label style={fieldLabel}>3. Modelo</label>
+                          {(() => {
+                            const available = MODELS[brand]?.[type] || [];
+                            return available.length > 0 ? (
+                              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                                {available.map(m => (
+                                  <button key={m} onClick={() => setModel(m)}
+                                    style={{ padding: "12px 10px", textAlign: "left", border: `1px solid ${model === m ? "#ff5a00" : "#2a2a2a"}`, borderRadius: 5, backgroundColor: model === m ? "#ff5a0015" : "#0d0d0d", cursor: "pointer", transition: "all 0.2s" }}>
+                                    <p style={{ color: "#ff5a00", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.07em", margin: "0 0 3px", fontFamily: "monospace" }}>{brand}</p>
+                                    <p style={{ color: model === m ? "#e8e8e8" : "#888", fontSize: 13, fontWeight: 600, margin: 0 }}>{m}</p>
+                                  </button>
+                                ))}
+                              </div>
+                            ) : (
+                              <input type="text" placeholder="Ingresa el modelo manualmente" value={model} onChange={(e) => setModel(e.target.value)}
+                                style={{ width: "100%", backgroundColor: "#0d0d0d", border: "1px solid #2a2a2a", borderRadius: 5, padding: "11px 14px", color: "#e8e8e8", fontSize: 14, outline: "none", boxSizing: "border-box" }}
+                                onFocus={(e) => (e.currentTarget.style.borderColor = "#ff5a00")}
+                                onBlur={(e) => (e.currentTarget.style.borderColor = "#2a2a2a")} />
+                            );
+                          })()}
+                        </motion.div>
+                      )}
+
+                      {/* Moto configurada */}
+                      {brand && model && (
+                        <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
+                          style={{ marginTop: 16, backgroundColor: "#ff5a0010", border: "1px solid #ff5a0030", borderRadius: 6, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div>
+                            <p style={{ color: "#ff5a00", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.07em", margin: "0 0 3px", fontFamily: "monospace" }}>Vehículo configurado</p>
+                            <p style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 18, fontWeight: 700, margin: 0 }}>{brand} {model}</p>
+                            <p style={{ color: "#888", fontSize: 11, margin: "2px 0 0", fontFamily: "monospace" }}>Tipo: {type || "N/A"}</p>
+                          </div>
+                          <div>
+                            <label style={{ color: "#555", fontSize: 10, display: "block", marginBottom: 4, textTransform: "uppercase" }}>Año</label>
+                            <select value={year} onChange={(e) => setYear(e.target.value)}
+                              style={{ backgroundColor: "#0d0d0d", border: "1px solid #2a2a2a", borderRadius: 4, padding: "6px 10px", color: "#e8e8e8", fontSize: 13, cursor: "pointer", outline: "none" }}>
+                              {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                            </select>
+                          </div>
+                        </motion.div>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -235,15 +472,17 @@ export default function Booking() {
                       <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 30, fontWeight: 800, lineHeight: 1 }}>${total.toLocaleString("es-CO")}</span>
                     </div>
                   </div>
-                  <button disabled={!bike || services.length === 0} onClick={() => setStep(2)}
-                    style={{ width: "100%", backgroundColor: "#ff5a00", border: "none", color: "#fff", padding: "13px", fontSize: 14, fontWeight: 700, cursor: (!bike || services.length === 0) ? "not-allowed" : "pointer", borderRadius: 5, opacity: (!bike || services.length === 0) ? 0.3 : 1, transition: "all 0.2s" }}
-                    onMouseEnter={(e) => { if (bike && services.length > 0) (e.currentTarget.style.backgroundColor = "#ff7a2a"); }}
+                  <button disabled={!isVehicleStepValid || services.length === 0} onClick={() => setStep(2)}
+                    style={{ width: "100%", backgroundColor: "#ff5a00", border: "none", color: "#fff", padding: "13px", fontSize: 14, fontWeight: 700, cursor: (!isVehicleStepValid || services.length === 0) ? "not-allowed" : "pointer", borderRadius: 5, opacity: (!isVehicleStepValid || services.length === 0) ? 0.3 : 1, transition: "all 0.2s" }}
+                    onMouseEnter={(e) => { if (isVehicleStepValid && services.length > 0) (e.currentTarget.style.backgroundColor = "#ff7a2a"); }}
                     onMouseLeave={(e) => { (e.currentTarget.style.backgroundColor = "#ff5a00"); }}>
                     Siguiente: Agendar →
                   </button>
-                  {(!bike || services.length === 0) && (
+                  {(!isVehicleStepValid || services.length === 0) && (
                     <p style={{ color: "#444", fontSize: 11, textAlign: "center", marginTop: 10 }}>
-                      {!bike ? "Selecciona una moto" : "Selecciona al menos un servicio"}
+                      {!isVehicleStepValid 
+                        ? (vehicleSelectionMode === "new" && !plate.trim() ? "Falta ingresar la placa" : "Selecciona o configura una moto") 
+                        : "Selecciona al menos un servicio"}
                     </p>
                   )}
                 </div>
@@ -264,26 +503,49 @@ export default function Booking() {
 
                 {/* Calendario */}
                 <div style={card}>
-                  <h3 style={{ ...sectionTitle, marginBottom: 20 }}>Mayo 2026</h3>
+                  <h3 style={{ ...sectionTitle, marginBottom: 20 }}>{capitalizedMonth} {currentYear}</h3>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, marginBottom: 10 }}>
                     {["L","M","M","J","V","S","D"].map((d, i) => (
                       <div key={i} style={{ textAlign: "center", color: "#444", fontSize: 11, fontWeight: 700, paddingBottom: 8 }}>{d}</div>
                     ))}
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
-                      <button key={d} onClick={() => setDate(d)}
-                        style={{ aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, border: `1px solid ${date === d ? "#ff5a00" : "#1e1e1e"}`, borderRadius: 5, backgroundColor: date === d ? "#ff5a00" : "#0d0d0d", color: date === d ? "#fff" : "#888", cursor: "pointer", fontWeight: date === d ? 700 : 400, transition: "all 0.15s" }}
-                        onMouseEnter={(e) => { if (date !== d) (e.currentTarget.style.borderColor = "#3a3a3a"); }}
-                        onMouseLeave={(e) => { if (date !== d) (e.currentTarget.style.borderColor = "#1e1e1e"); }}>
-                        {d}
-                      </button>
-                    ))}
+                    {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => {
+                      const disabled = isPastDay(d);
+                      return (
+                        <button key={d} onClick={() => setDate(d)} disabled={disabled}
+                          style={{ 
+                            aspectRatio: "1", 
+                            display: "flex", 
+                            alignItems: "center", 
+                            justifyContent: "center", 
+                            fontSize: 13, 
+                            border: `1px solid ${date === d ? "#ff5a00" : "#1e1e1e"}`, 
+                            borderRadius: 5, 
+                            backgroundColor: date === d ? "#ff5a00" : "#0d0d0d", 
+                            color: disabled ? "#333" : (date === d ? "#fff" : "#888"), 
+                            cursor: disabled ? "not-allowed" : "pointer", 
+                            fontWeight: date === d ? 700 : 400, 
+                            opacity: disabled ? 0.3 : 1,
+                            transition: "all 0.15s" 
+                          }}
+                          onMouseEnter={(e) => { if (date !== d && !disabled) (e.currentTarget.style.borderColor = "#3a3a3a"); }}
+                          onMouseLeave={(e) => { if (date !== d && !disabled) (e.currentTarget.style.borderColor = "#1e1e1e"); }}>
+                          {d}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
                 {/* Hora + confirmar */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  {errorMsg && (
+                    <div style={{ backgroundColor: "#2b0d0d", border: "1px solid #5c1a1a", color: "#ff6b6b", padding: "12px 16px", borderRadius: 6, fontSize: 13, fontFamily: "monospace" }}>
+                      ⚠️ {errorMsg}
+                    </div>
+                  )}
+
                   <div style={card}>
                     <div style={{ backgroundColor: "#ff5a0010", border: "1px solid #ff5a0025", borderLeft: "3px solid #ff5a00", borderRadius: 5, padding: "12px 16px", marginBottom: 20 }}>
                       <p style={{ color: "#ff5a00", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.07em", margin: "0 0 3px", fontFamily: "monospace" }}>Slots disponibles</p>
@@ -302,12 +564,38 @@ export default function Booking() {
                     </div>
                   </div>
 
+                  {/* Observaciones */}
                   <div style={card}>
-                    <button disabled={!date || !time} onClick={() => setShowSuccess(true)}
-                      style={{ width: "100%", backgroundColor: "#ff5a00", border: "none", color: "#fff", padding: "16px", fontSize: 15, fontWeight: 700, cursor: (!date || !time) ? "not-allowed" : "pointer", borderRadius: 5, opacity: (!date || !time) ? 0.3 : 1, marginBottom: 12, transition: "all 0.2s" }}
-                      onMouseEnter={(e) => { if (date && time) (e.currentTarget.style.backgroundColor = "#ff7a2a"); }}
+                    <label style={fieldLabel}>Observaciones adicionales</label>
+                    <textarea
+                      placeholder="Describe fallas o solicitudes particulares para el taller..."
+                      value={comments}
+                      onChange={(e) => setComments(e.target.value)}
+                      style={{
+                        width: "100%",
+                        height: 70,
+                        backgroundColor: "#0d0d0d",
+                        border: "1px solid #2a2a2a",
+                        borderRadius: 5,
+                        padding: "11px 14px",
+                        color: "#e8e8e8",
+                        fontSize: 13,
+                        outline: "none",
+                        resize: "none",
+                        boxSizing: "border-box",
+                        fontFamily: "'Inter', sans-serif"
+                      }}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = "#ff5a00")}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = "#2a2a2a")}
+                    />
+                  </div>
+
+                  <div style={card}>
+                    <button disabled={!date || !time || savingAppointment} onClick={handleConfirmBooking}
+                      style={{ width: "100%", backgroundColor: "#ff5a00", border: "none", color: "#fff", padding: "16px", fontSize: 15, fontWeight: 700, cursor: (!date || !time || savingAppointment) ? "not-allowed" : "pointer", borderRadius: 5, opacity: (!date || !time || savingAppointment) ? 0.3 : 1, marginBottom: 12, transition: "all 0.2s" }}
+                      onMouseEnter={(e) => { if (date && time && !savingAppointment) (e.currentTarget.style.backgroundColor = "#ff7a2a"); }}
                       onMouseLeave={(e) => { (e.currentTarget.style.backgroundColor = "#ff5a00"); }}>
-                      Confirmar cita de servicio →
+                      {savingAppointment ? "Guardando cita..." : "Confirmar cita de servicio →"}
                     </button>
                     <p style={{ color: "#333", fontSize: 11, textAlign: "center", fontFamily: "monospace" }}>
                       Se reservarán {fmtDur(duration)} de capacidad técnica

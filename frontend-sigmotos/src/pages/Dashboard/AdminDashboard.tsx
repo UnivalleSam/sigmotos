@@ -56,21 +56,12 @@ export default function AdminDashboard() {
   }, []);
 
   // ── ESTADO 1: CONTROL DE CITAS ───────────────────
-  const [appointments, setAppointments] = useState<Appointment[]>([
+  const [appointments] = useState<Appointment[]>([
     { id: "TKT-3829", customer: "Juan Pérez", bike: "Kawasaki Ninja 400", date: "17 Mayo, 2026", time: "08:00 AM", service: "Mantenimiento General", price: 260000, mechanic: "Carlos Mendoza", status: "agendada" },
     { id: "TKT-4920", customer: "Sofía Gómez", bike: "Yamaha MT-09", date: "17 Mayo, 2026", time: "10:30 AM", service: "Pastillas de Freno Brembo", price: 220000, mechanic: "Andrés Restrepo", status: "taller" },
     { id: "TKT-1182", customer: "Mauricio Restrepo", bike: "KTM RC 200", date: "18 Mayo, 2026", time: "02:00 PM", service: "Diagnóstico Embrague", price: 60000, mechanic: "Mateo Ortiz", status: "agendada" },
     { id: "TKT-8839", customer: "Natalia Velez", bike: "Suzuki Gixxer 150", date: "15 Mayo, 2026", time: "04:30 PM", service: "Cambio Aceite Sintético", price: 90000, mechanic: "Carlos Mendoza", status: "completada" },
   ]);
-  const [assigningTktId, setAssigningTktId] = useState<string | null>(null);
-
-  const handleUpdateStatus = (id: string, newStatus: Appointment["status"]) => {
-    setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
-  };
-  const handleReassignMechanic = (id: string, newMechanic: string) => {
-    setAppointments(prev => prev.map(a => a.id === id ? { ...a, mechanic: newMechanic } : a));
-    setAssigningTktId(null);
-  };
 
   // ── ESTADO 2: CONTROL DE PERSONAL ────────────────
   const [employees, setEmployees] = useState<Employee[]>([

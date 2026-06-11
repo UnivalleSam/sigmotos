@@ -35,8 +35,28 @@ const SigmotosAuth = () => {
 
         console.log("Login exitoso:", data);
 
-        // Guardar usuario si quieres
-        localStorage.setItem("user", JSON.stringify(data));
+        // Obtener datos completos del usuario (id, name, email) desde /api/users
+        try {
+          const usersRes = await fetch("http://localhost:8081/api/users");
+          if (usersRes.ok) {
+            const users = await usersRes.json();
+            const currentUser = users.find((u: any) => u.email === formData.email);
+            if (currentUser) {
+              localStorage.setItem("user", JSON.stringify({
+                token: data.token,
+                id: currentUser.id,
+                name: currentUser.name,
+                email: currentUser.email,
+              }));
+            } else {
+              localStorage.setItem("user", JSON.stringify({ token: data.token, email: formData.email }));
+            }
+          } else {
+            localStorage.setItem("user", JSON.stringify({ token: data.token, email: formData.email }));
+          }
+        } catch {
+          localStorage.setItem("user", JSON.stringify({ token: data.token, email: formData.email }));
+        }
 
         navigate("/home");
 
@@ -164,7 +184,15 @@ const SigmotosAuth = () => {
             {isLogin && (
               <button
                 type="button"
-                onClick={() => navigate("/dashboard")}
+                onClick={() => {
+                  localStorage.setItem("user", JSON.stringify({
+                    id: 1,
+                    name: "José Cárdenas",
+                    email: "jose.admin@sigmotos.com",
+                    token: "mock-admin-token"
+                  }));
+                  navigate("/dashboard");
+                }}
                 className="auth-submit-admin"
               >
                 <span>Continuar como Administrador • Bypass</span>
