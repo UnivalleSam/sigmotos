@@ -1,21 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { getVehicles, getVehiclesByOwner, createVehicle, type VehicleDto } from "../../services/api";
 
 interface Moto {
-  id: string;
+  id: number;
   brand: string;
   model: string;
-  year: string;
+  year: number;
   plate: string;
-  type: string;
-  color: string;
-  mileage: string;
-  lastService?: string;
+  ownerId: number;
+  ownerName?: string;
 }
 
 const BRANDS = ["Yamaha", "Honda", "Kawasaki", "Suzuki", "KTM", "BMW", "Otra"];
-const TYPES = ["Naked", "Deportiva", "Adventure", "Offroad", "Scooter"];
 const BRAND_ICONS: Record<string, string> = {
   Yamaha: "🔵",
   Honda: "🔴",
@@ -26,78 +24,108 @@ const BRAND_ICONS: Record<string, string> = {
   Otra: "⚪",
 };
 
-const INITIAL_MOTOS: Moto[] = [
-  {
-    id: "MOTO-001",
-    brand: "Kawasaki",
-    model: "NINJA 400",
-    year: "2022",
-    plate: "NJA-400",
-    type: "Deportiva",
-    color: "Verde Lima",
-    mileage: "12,450 km",
-    lastService: "16 Mayo, 2026",
-  },
-  {
-    id: "MOTO-002",
-    brand: "Yamaha",
-    model: "MT-09",
-    year: "2021",
-    plate: "MT09-X",
-    type: "Naked",
-    color: "Gris Metálico",
-    mileage: "8,210 km",
-    lastService: "10 Abril, 2026",
-  },
-];
+interface MotoForm {
+  brand: string;
+  model: string;
+  year: number;
+  plate: string;
+}
 
-const emptyForm = (): Omit<Moto, "id"> => ({
+const emptyForm = (): MotoForm => ({
   brand: "",
   model: "",
-  year: String(new Date().getFullYear()),
+  year: new Date().getFullYear(),
   plate: "",
-  type: "",
-  color: "",
-  mileage: "0 km",
 });
 
 export default function MyMotos() {
   const navigate = useNavigate();
-  const [motos, setMotos] = useState<Moto[]>(INITIAL_MOTOS);
+  const [motos, setMotos] = useState<Moto[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm());
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const handleAdd = () => {
-    if (!form.brand || !form.model || !form.plate) return;
-    if (editingId) {
-      setMotos((prev) =>
-        prev.map((m) => (m.id === editingId ? { ...form, id: editingId } : m))
-      );
-      setEditingId(null);
-    } else {
-      const id = `MOTO-${String(motos.length + 1).padStart(3, "0")}`;
-      setMotos((prev) => [...prev, { ...form, id }]);
+  // Obtener el usuario logueado desde localStorage
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const userId = storedUser.id;
+
+  // Cargar vehículos al montar el componente
+  useEffect(() => {
+    loadVehicles();
+  }, []);
+
+  const loadVehicles = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      let vehicles: VehicleDto[];
+      if (userId) {
+        vehicles = await getVehiclesByOwner(Number(userId));
+      } else {
+        // Si no hay usuario logueado, traer todos los vehículos
+        vehicles = await getVehicles();
+      }
+
+      const mapped: Moto[] = vehicles.map((v) => ({
+        id: v.id,
+        brand: v.brand,
+        model: v.model,
+        year: v.year,
+        plate: v.plate,
+        ownerId: v.ownerId,
+      }));
+
+      setMotos(mapped);
+    } catch (err) {
+      console.error("Error cargando vehículos:", err);
+      setError("No se pudieron cargar los vehículos. Verifica que el backend esté corriendo.");
+    } finally {
+      setLoading(false);
     }
-    setForm(emptyForm());
-    setShowForm(false);
   };
 
-  const handleEdit = (moto: Moto) => {
-    const { id, ...rest } = moto;
-    setForm(rest);
-    setEditingId(id);
-    setShowForm(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const handleAdd = async () => {
+    if (!form.brand || !form.model || !form.plate) return;
+
+    setSaving(true);
+    setError(null);
+    try {
+      const newVehicle = await createVehicle({
+        plate: form.plate.toUpperCase(),
+        brand: form.brand,
+        model: form.model,
+        year: form.year,
+        ownerId: userId ? Number(userId) : 1,
+      });
+
+      if (newVehicle) {
+        setMotos((prev) => [
+          ...prev,
+          {
+            id: newVehicle.id,
+            brand: newVehicle.brand,
+            model: newVehicle.model,
+            year: newVehicle.year,
+            plate: newVehicle.plate,
+            ownerId: newVehicle.ownerId,
+          },
+        ]);
+        setSuccessMsg(`🏍️ ${newVehicle.brand} ${newVehicle.model} registrada exitosamente`);
+        setTimeout(() => setSuccessMsg(null), 3000);
+      }
+      setForm(emptyForm());
+      setShowForm(false);
+    } catch (err: any) {
+      setError(err.message || "Error al registrar el vehículo");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setMotos((prev) => prev.filter((m) => m.id !== id));
-    setDeleteId(null);
-  };
-
-  const years = Array.from({ length: 18 }, (_, i) => String(2027 - i));
+  const years = Array.from({ length: 18 }, (_, i) => 2027 - i);
 
   return (
     <div
@@ -168,26 +196,110 @@ export default function MyMotos() {
           </h1>
         </div>
 
-        <button
-          onClick={() => { setForm(emptyForm()); setEditingId(null); setShowForm(true); }}
-          style={{
-            backgroundColor: "#ff5a00",
-            border: "none",
-            color: "#fff",
-            cursor: "pointer",
-            padding: "9px 20px",
-            fontSize: 13,
-            fontWeight: 600,
-            borderRadius: 5,
-          }}
-        >
-          + Agregar moto
-        </button>
+        <div style={{ display: "flex", gap: 12 }}>
+          <button
+            onClick={() => navigate("/repuestos")}
+            style={{
+              backgroundColor: "transparent",
+              border: "1px solid #2a2a2a",
+              color: "#aaa",
+              cursor: "pointer",
+              padding: "9px 16px",
+              fontSize: 13,
+              borderRadius: 5,
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "#ff5a00";
+              (e.currentTarget as HTMLButtonElement).style.color = "#ff5a00";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "#2a2a2a";
+              (e.currentTarget as HTMLButtonElement).style.color = "#aaa";
+            }}
+          >
+            📦 Ver Repuestos
+          </button>
+          <button
+            onClick={() => { setForm(emptyForm()); setShowForm(true); }}
+            style={{
+              backgroundColor: "#ff5a00",
+              border: "none",
+              color: "#fff",
+              cursor: "pointer",
+              padding: "9px 20px",
+              fontSize: 13,
+              fontWeight: 600,
+              borderRadius: 5,
+            }}
+          >
+            + Agregar moto
+          </button>
+        </div>
       </header>
 
       <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px 24px" }}>
 
-        {/* Formulario agregar/editar */}
+        {/* Toast de éxito */}
+        <AnimatePresence>
+          {successMsg && (
+            <motion.div
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              style={{
+                backgroundColor: "#0d2b0d",
+                border: "1px solid #1a5c1a",
+                color: "#4ade80",
+                padding: "12px 20px",
+                borderRadius: 6,
+                marginBottom: 20,
+                fontSize: 14,
+              }}
+            >
+              {successMsg}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Toast de error */}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              style={{
+                backgroundColor: "#2b0d0d",
+                border: "1px solid #5c1a1a",
+                color: "#ff6b6b",
+                padding: "12px 20px",
+                borderRadius: 6,
+                marginBottom: 20,
+                fontSize: 14,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <span>⚠️ {error}</span>
+              <button
+                onClick={() => setError(null)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#ff6b6b",
+                  cursor: "pointer",
+                  fontSize: 16,
+                }}
+              >
+                ✕
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Formulario agregar */}
         <AnimatePresence>
           {showForm && (
             <motion.div
@@ -215,7 +327,7 @@ export default function MyMotos() {
                     letterSpacing: "0.08em",
                   }}
                 >
-                  {editingId ? "✏️ Editar vehículo" : "➕ Registrar nuevo vehículo"}
+                  ➕ Registrar nuevo vehículo
                 </h3>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
@@ -251,7 +363,7 @@ export default function MyMotos() {
                     <label style={labelStyle}>Año</label>
                     <select
                       value={form.year}
-                      onChange={(e) => setForm({ ...form, year: e.target.value })}
+                      onChange={(e) => setForm({ ...form, year: Number(e.target.value) })}
                       style={inputStyle}
                     >
                       {years.map((y) => (
@@ -271,55 +383,28 @@ export default function MyMotos() {
                       style={inputStyle}
                     />
                   </div>
-
-                  {/* Tipo */}
-                  <div>
-                    <label style={labelStyle}>Tipo</label>
-                    <select
-                      value={form.type}
-                      onChange={(e) => setForm({ ...form, type: e.target.value })}
-                      style={inputStyle}
-                    >
-                      <option value="">Seleccionar tipo</option>
-                      {TYPES.map((t) => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Color */}
-                  <div>
-                    <label style={labelStyle}>Color</label>
-                    <input
-                      type="text"
-                      placeholder="Ej: Rojo Pasión"
-                      value={form.color}
-                      onChange={(e) => setForm({ ...form, color: e.target.value })}
-                      style={inputStyle}
-                    />
-                  </div>
                 </div>
 
                 <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
                   <button
                     onClick={handleAdd}
-                    disabled={!form.brand || !form.model || !form.plate}
+                    disabled={!form.brand || !form.model || !form.plate || saving}
                     style={{
                       backgroundColor: "#ff5a00",
                       border: "none",
                       color: "#fff",
-                      cursor: form.brand && form.model && form.plate ? "pointer" : "not-allowed",
+                      cursor: form.brand && form.model && form.plate && !saving ? "pointer" : "not-allowed",
                       padding: "10px 24px",
                       fontSize: 14,
                       fontWeight: 600,
                       borderRadius: 5,
-                      opacity: form.brand && form.model && form.plate ? 1 : 0.4,
+                      opacity: form.brand && form.model && form.plate && !saving ? 1 : 0.4,
                     }}
                   >
-                    {editingId ? "Guardar cambios" : "Registrar moto"}
+                    {saving ? "Registrando..." : "Registrar moto"}
                   </button>
                   <button
-                    onClick={() => { setShowForm(false); setEditingId(null); setForm(emptyForm()); }}
+                    onClick={() => { setShowForm(false); setForm(emptyForm()); }}
                     style={{
                       backgroundColor: "transparent",
                       border: "1px solid #333",
@@ -338,8 +423,24 @@ export default function MyMotos() {
           )}
         </AnimatePresence>
 
-        {/* Lista de motos */}
-        {motos.length === 0 ? (
+        {/* Estado de carga */}
+        {loading ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            style={{
+              textAlign: "center",
+              padding: "80px 24px",
+              color: "#555",
+            }}
+          >
+            <div style={{ fontSize: 42, marginBottom: 16 }}>⏳</div>
+            <h3 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, margin: "0 0 8px", color: "#888" }}>
+              Cargando vehículos...
+            </h3>
+            <p style={{ fontSize: 14 }}>Conectando con el servidor</p>
+          </motion.div>
+        ) : motos.length === 0 ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -356,6 +457,7 @@ export default function MyMotos() {
             <p style={{ fontSize: 14 }}>Agrega tu primera moto para comenzar</p>
           </motion.div>
         ) : (
+          /* Lista de motos */
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             {motos.map((moto, i) => (
               <motion.div
@@ -408,38 +510,18 @@ export default function MyMotos() {
                           {moto.brand} {moto.model}
                         </h3>
                         <p style={{ margin: 0, color: "#555", fontSize: 12, fontFamily: "monospace" }}>
-                          {moto.id}
+                          ID: {moto.id}
                         </p>
                       </div>
                     </div>
-                  </div>
-
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      onClick={() => handleEdit(moto)}
-                      style={actionBtnStyle}
-                      title="Editar"
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      onClick={() => setDeleteId(moto.id)}
-                      style={{ ...actionBtnStyle, borderColor: "#3d1212", color: "#ff4444" }}
-                      title="Eliminar"
-                    >
-                      🗑️
-                    </button>
                   </div>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 20 }}>
                   {[
                     { label: "Placa", value: moto.plate },
-                    { label: "Año", value: moto.year },
-                    { label: "Tipo", value: moto.type || "—" },
-                    { label: "Color", value: moto.color || "—" },
-                    { label: "Kilometraje", value: moto.mileage },
-                    { label: "Último servicio", value: moto.lastService || "Sin servicios" },
+                    { label: "Año", value: String(moto.year) },
+                    { label: "Propietario ID", value: String(moto.ownerId) },
                   ].map(({ label, value }) => (
                     <div key={label}>
                       <p style={{ color: "#555", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.07em", margin: "0 0 3px" }}>
@@ -486,82 +568,6 @@ export default function MyMotos() {
           </div>
         )}
       </div>
-
-      {/* Modal de confirmación de eliminación */}
-      <AnimatePresence>
-        {deleteId && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{
-              position: "fixed",
-              inset: 0,
-              backgroundColor: "rgba(0,0,0,0.75)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 100,
-            }}
-            onClick={() => setDeleteId(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                backgroundColor: "#111",
-                border: "1px solid #3d1212",
-                borderRadius: 10,
-                padding: "32px",
-                maxWidth: 360,
-                width: "90%",
-                textAlign: "center",
-              }}
-            >
-              <div style={{ fontSize: 42, marginBottom: 12 }}>⚠️</div>
-              <h3 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, margin: "0 0 10px" }}>
-                ¿Eliminar vehículo?
-              </h3>
-              <p style={{ color: "#777", fontSize: 13, margin: "0 0 24px" }}>
-                Esta acción no se puede deshacer. Se eliminará el vehículo y su historial asociado.
-              </p>
-              <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-                <button
-                  onClick={() => setDeleteId(null)}
-                  style={{
-                    backgroundColor: "transparent",
-                    border: "1px solid #333",
-                    color: "#aaa",
-                    cursor: "pointer",
-                    padding: "10px 22px",
-                    fontSize: 14,
-                    borderRadius: 5,
-                  }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={() => handleDelete(deleteId)}
-                  style={{
-                    backgroundColor: "#ff2222",
-                    border: "none",
-                    color: "#fff",
-                    cursor: "pointer",
-                    padding: "10px 22px",
-                    fontSize: 14,
-                    fontWeight: 600,
-                    borderRadius: 5,
-                  }}
-                >
-                  Eliminar
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
@@ -585,14 +591,4 @@ const inputStyle: React.CSSProperties = {
   fontSize: 14,
   outline: "none",
   boxSizing: "border-box",
-};
-
-const actionBtnStyle: React.CSSProperties = {
-  backgroundColor: "#1a1a1a",
-  border: "1px solid #2a2a2a",
-  color: "#aaa",
-  cursor: "pointer",
-  padding: "6px 10px",
-  fontSize: 14,
-  borderRadius: 4,
 };

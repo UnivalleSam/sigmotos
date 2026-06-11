@@ -1,5 +1,6 @@
 const WORKSHOP_API = 'http://localhost:8083/api';
 const USERS_API = 'http://localhost:8081/api';
+const INVENTORY_API = 'http://localhost:8082/api';
 
 // ── TIPOS ──────────────────────────────────────────────────────────────
 
@@ -28,6 +29,24 @@ export interface UserDto {
     id: number;
     name: string;
     email: string;
+}
+
+export interface ProductDto {
+    id: number;
+    nombre: string;
+    descripcion?: string;
+    codigo: string;
+    marca: string;
+    categoria: string;
+    precioCompra: number;
+    precioVenta: number;
+    stockActual: number;
+    stockMinimo: number;
+    ubicacion?: string;
+    activo: boolean;
+    alertaStock: boolean;
+    fechaCreacion?: string;
+    fechaActualizacion?: string;
 }
 
 // ── HELPERS INTERNOS ────────────────────────────────────────────────────
@@ -116,3 +135,134 @@ export const updateAppointmentStatus = async (
         return null;
     }
 };
+
+// ── VEHÍCULOS ───────────────────────────────────────────────────────────
+
+export const getVehicles = async (): Promise<VehicleDto[]> => {
+    try {
+        const res = await fetch(`${WORKSHOP_API}/vehicles`);
+        if (!res.ok) throw new Error('Error al obtener vehículos');
+        return await res.json();
+    } catch (error) {
+        console.error('Error fetching vehicles', error);
+        return [];
+    }
+};
+
+export const getVehiclesByOwner = async (ownerId: number): Promise<VehicleDto[]> => {
+    try {
+        const res = await fetch(`${WORKSHOP_API}/vehicles/owner/${ownerId}`);
+        if (!res.ok) throw new Error('Error al obtener vehículos del propietario');
+        return await res.json();
+    } catch (error) {
+        console.error('Error fetching vehicles by owner', error);
+        return [];
+    }
+};
+
+export const createVehicle = async (data: Omit<VehicleDto, 'id'>): Promise<VehicleDto | null> => {
+    try {
+        const res = await fetch(`${WORKSHOP_API}/vehicles`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) {
+            const errorBody = await res.json().catch(() => null);
+            throw new Error(errorBody?.message || 'Error al registrar vehículo');
+        }
+        return await res.json();
+    } catch (error) {
+        console.error('Error creating vehicle', error);
+        throw error;
+    }
+};
+
+// ── REPUESTOS / INVENTARIO ──────────────────────────────────────────────
+
+export const getProducts = async (): Promise<ProductDto[]> => {
+    try {
+        const res = await fetch(`${INVENTORY_API}/productos`);
+        if (!res.ok) throw new Error('Error al obtener repuestos');
+        return await res.json();
+    } catch (error) {
+        console.error('Error fetching products', error);
+        return [];
+    }
+};
+
+export const getProductsAlerts = async (): Promise<ProductDto[]> => {
+    try {
+        const res = await fetch(`${INVENTORY_API}/productos/alertas`);
+        if (!res.ok) throw new Error('Error al obtener alertas de stock');
+        return await res.json();
+    } catch (error) {
+        console.error('Error fetching product alerts', error);
+        return [];
+    }
+};
+
+export const getProductById = async (id: number): Promise<ProductDto | null> => {
+    try {
+        const res = await fetch(`${INVENTORY_API}/productos/${id}`);
+        if (!res.ok) throw new Error('Error al obtener repuesto');
+        return await res.json();
+    } catch (error) {
+        console.error('Error fetching product by id', error);
+        return null;
+    }
+};
+
+export const createProduct = async (
+    data: Omit<ProductDto, 'id' | 'activo' | 'alertaStock'>
+): Promise<ProductDto> => {
+    try {
+        const res = await fetch(`${INVENTORY_API}/productos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) {
+            const errorBody = await res.json().catch(() => null);
+            throw new Error(errorBody?.message || 'Error al registrar repuesto');
+        }
+        return await res.json();
+    } catch (error) {
+        console.error('Error creating product', error);
+        throw error;
+    }
+};
+
+export const updateProduct = async (
+    id: number,
+    data: Omit<ProductDto, 'id' | 'activo' | 'alertaStock' | 'fechaCreacion' | 'fechaActualizacion'>
+): Promise<ProductDto> => {
+    try {
+        const res = await fetch(`${INVENTORY_API}/productos/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) {
+            const errorBody = await res.json().catch(() => null);
+            throw new Error(errorBody?.message || 'Error al actualizar repuesto');
+        }
+        return await res.json();
+    } catch (error) {
+        console.error('Error updating product', error);
+        throw error;
+    }
+};
+
+export const deleteProduct = async (id: number): Promise<boolean> => {
+    try {
+        const res = await fetch(`${INVENTORY_API}/productos/${id}`, {
+            method: 'DELETE',
+        });
+        return res.ok;
+    } catch (error) {
+        console.error('Error deleting product', error);
+        return false;
+    }
+};
+

@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/vehicles")
 @CrossOrigin(origins = "http://localhost:5173")
@@ -23,10 +25,22 @@ public class VehicleController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
+    // GET /api/vehicles — Listar todos los vehículos
+    @GetMapping
+    public ResponseEntity<List<VehicleDTO>> findAll() {
+        return ResponseEntity.ok(vehicleService.findAll());
+    }
+
     // GET /api/vehicles/{id} — Obtener vehículo por ID
     @GetMapping("/{id}")
     public ResponseEntity<VehicleDTO> findById(@PathVariable Long id) {
         return ResponseEntity.ok(vehicleService.findById(id));
+    }
+
+    // GET /api/vehicles/owner/{ownerId} — Listar vehículos por propietario
+    @GetMapping("/owner/{ownerId}")
+    public ResponseEntity<List<VehicleDTO>> findByOwner(@PathVariable Long ownerId) {
+        return ResponseEntity.ok(vehicleService.findByOwnerId(ownerId));
     }
 
     // GET /api/vehicles/search?plate={plate} — Buscar por placa (usado por OCR)

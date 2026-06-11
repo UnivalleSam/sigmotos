@@ -11,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -50,6 +53,20 @@ public class VehicleService {
         Vehicle vehicle = vehicleRepository.findByPlateIgnoreCase(normalizedPlate)
                 .orElseThrow(() -> new VehicleNotFoundException("Vehículo no registrado"));
         return toDTO(vehicle);
+    }
+
+    public List<VehicleDTO> findAll() {
+        return vehicleRepository.findAll()
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    public List<VehicleDTO> findByOwnerId(Long ownerId) {
+        return vehicleRepository.findByOwnerId(ownerId)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
     }
 
     // Elimina espacios y guiones, convierte a mayúsculas

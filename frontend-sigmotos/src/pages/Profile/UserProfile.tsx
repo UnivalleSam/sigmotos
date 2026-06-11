@@ -130,6 +130,20 @@ export default function UserProfile() {
             🏍️ Mis Motos
           </button>
           <button
+            onClick={() => navigate("/repuestos")}
+            style={{
+              background: "none",
+              border: "1px solid #2a2a2a",
+              color: "#aaa",
+              cursor: "pointer",
+              padding: "7px 16px",
+              fontSize: 13,
+              borderRadius: 4,
+            }}
+          >
+            📦 Repuestos
+          </button>
+          <button
             onClick={() => navigate("/history")}
             style={{
               background: "none",
@@ -422,6 +436,7 @@ export default function UserProfile() {
             {[
               { label: "Agendar servicio", icon: "📅", route: "/booking", desc: "Reserva tu próxima cita" },
               { label: "Ver mis motos", icon: "🏍️", route: "/my-motos", desc: "Gestiona tus vehículos" },
+              { label: "Catálogo de Repuestos", icon: "📦", route: "/repuestos", desc: "Ver stock e inventario" },
               { label: "Historial de servicios", icon: "📋", route: "/history", desc: "Revisa servicios pasados" },
               { label: "Estado de mantenimiento", icon: "🔍", route: "/maintenance", desc: "Monitorea tu moto en taller" },
               { label: "Volver al inicio", icon: "🏠", route: "/home", desc: "Página principal" },

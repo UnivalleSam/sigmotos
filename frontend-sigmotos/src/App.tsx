@@ -7,6 +7,7 @@ import AdminDashboard from "./pages/Dashboard/AdminDashboard";
 import UserProfile from "./pages/Profile/UserProfile";
 import MyMotos from "./pages/MyMotos/MyMotos";
 import ServiceHistory from "./pages/History/ServiceHistory";
+import Repuestos from "./pages/Repuestos/Repuestos";
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
         <Route path="/profile" element={<UserProfile />} />
         <Route path="/my-motos" element={<MyMotos />} />
         <Route path="/history" element={<ServiceHistory />} />
+        <Route path="/repuestos" element={<Repuestos />} />
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
     </BrowserRouter>
