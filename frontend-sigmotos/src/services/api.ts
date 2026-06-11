@@ -178,6 +178,27 @@ export const createVehicle = async (data: Omit<VehicleDto, 'id'>): Promise<Vehic
     }
 };
 
+export const searchVehicleByPlate = async (plate: string): Promise<VehicleDto | null> => {
+    try {
+        const res = await fetch(`${WORKSHOP_API}/vehicles/search?plate=${plate}`);
+        if (!res.ok) return null;
+        return await res.json();
+    } catch (error) {
+        console.error('Error searching vehicle by plate', error);
+        return null;
+    }
+};
+
+export const getAppointmentsByVehicle = async (vehicleId: number): Promise<AppointmentDto[]> => {
+    try {
+        const all = await getAppointments();
+        return all.filter(a => a.vehicleId === vehicleId);
+    } catch (error) {
+        console.error('Error fetching appointments by vehicle', error);
+        return [];
+    }
+};
+
 // ── REPUESTOS / INVENTARIO ──────────────────────────────────────────────
 
 export const getProducts = async (): Promise<ProductDto[]> => {

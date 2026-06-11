@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { searchVehicleByPlate, getAppointmentsByVehicle } from "../../services/api";
+import type { AppointmentDto, VehicleDto } from "../../services/api";
 
 interface Procedure {
   name: string;
@@ -109,6 +111,184 @@ const mockDatabase: Record<string, BikeMaintenance> = {
   },
 };
 
+const mapAppointmentStatus = (status?: string): { text: string; type: "reparacion" | "listo" | "diagnostico"; progress: number } => {
+  if (!status) return { text: "Cita Pendiente", type: "diagnostico", progress: 20 };
+  const s = status.toUpperCase();
+  switch (s) {
+    case "ACCEPTED":
+      return { text: "En Servicio", type: "reparacion", progress: 60 };
+    case "CANCELLED":
+      return { text: "Cancelada", type: "diagnostico", progress: 0 };
+    case "PENDING":
+    default:
+      return { text: "Cita Pendiente", type: "diagnostico", progress: 20 };
+  }
+};
+
+const parseServicesFromReason = (reason?: string): Procedure[] => {
+  if (!reason) return [{ name: "Servicio general", price: 0, status: "pending" }];
+
+  try {
+    const [servicesPart] = reason.split(". Notas:");
+    const serviceNames = servicesPart.split(",").map(s => s.trim()).filter(Boolean);
+
+    const SERVICE_PRICES: Record<string, number> = {
+      "Mantenimiento General": 260000,
+      "Scanner OBD II": 120000,
+      "Cambio Aceite Sintético": 90000,
+      "Lavado Detallado": 40000,
+    };
+
+    const procedures = serviceNames.map((name, idx) => {
+      // Normalizar caracteres con tildes dañados en Base de Datos
+      const cleanName = name
+        .replace(/Sint\u00e8tico|Sint\u00e9tico|Sint\u019eNico/gi, "Sintético")
+        .replace(/General/gi, "General")
+        .replace(/Detallado/gi, "Detallado");
+
+      let matchedKey = Object.keys(SERVICE_PRICES).find(key => 
+        cleanName.toLowerCase().includes(key.toLowerCase())
+      );
+
+      const price = matchedKey ? SERVICE_PRICES[matchedKey] : 0;
+      return {
+        name,
+        price,
+        status: idx === 0 ? "progress" as const : "pending" as const,
+      };
+    });
+
+    if (procedures.length === 0) {
+      return [{ name: "Servicio general", price: 0, status: "pending" }];
+    }
+    return procedures;
+  } catch (error) {
+    console.error("Error parsing services:", error);
+    return [{ name: "Servicio general", price: 0, status: "pending" }];
+  }
+};
+
+const formatAppointmentDateDisplay = (dateStr: string): string => {
+  if (!dateStr) return "N/A";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleString("es-CO", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return dateStr;
+  }
+};
+
+const buildTimeline = (status: string, dateStr: string): TimelineStep[] => {
+  const dateDisplay = formatAppointmentDateDisplay(dateStr);
+  const isAccepted = status === "ACCEPTED";
+  const isPending = status === "PENDING";
+
+  return [
+    {
+      title: "01. Ingreso y Recepción",
+      desc: isPending
+        ? "Cita agendada. Pendiente de confirmación por el taller."
+        : "Registro formal de ingreso completado.",
+      time: dateDisplay,
+      status: "completed",
+    },
+    {
+      title: "02. Diagnóstico Técnico",
+      desc: isPending
+        ? "Se realizará una vez confirmada la cita."
+        : "Scanner conectado. Evaluación de sistemas en curso.",
+      time: isAccepted ? dateDisplay : undefined,
+      status: isPending ? "pending" : isAccepted ? "completed" : "pending",
+    },
+    {
+      title: "03. Servicio y Reparación",
+      desc: "Procedimientos de mantenimiento según orden de servicio.",
+      status: isAccepted ? "active" : "pending",
+    },
+    {
+      title: "04. Pruebas de Calidad",
+      desc: "Verificación y testeo de componentes intervenidos.",
+      status: "pending",
+    },
+    {
+      title: "05. Listo para Entrega",
+      desc: "Lavado de cortesía y entrega formal con reportes.",
+      status: "pending",
+    },
+  ];
+};
+
+const buildLogs = (status: string, dateStr: string): TechLog[] => {
+  const dateDisplay = formatAppointmentDateDisplay(dateStr);
+  const logs: TechLog[] = [];
+
+  if (status === "ACCEPTED") {
+    logs.push(
+      { time: "En curso", message: "Procedimientos de servicio iniciados según orden de trabajo." },
+      { time: dateDisplay, message: "Cita aceptada por el taller. Vehículo ingresado al sistema." },
+    );
+  } else if (status === "PENDING") {
+    logs.push(
+      { time: dateDisplay, message: "Cita agendada por el cliente. Esperando confirmación del taller." },
+    );
+  } else if (status === "CANCELLED") {
+    logs.push(
+      { time: dateDisplay, message: "La cita fue cancelada." },
+    );
+  }
+
+  return logs;
+};
+
+const buildMaintenanceFromBackend = (
+  vehicle: VehicleDto,
+  appointment: AppointmentDto
+): BikeMaintenance => {
+  const statusInfo = mapAppointmentStatus(appointment?.status);
+  const procedures = parseServicesFromReason(appointment?.reason);
+
+  if (appointment?.status === "ACCEPTED" && procedures.length > 0) {
+    procedures[0].status = "progress";
+  }
+
+  const apptDateStr = appointment?.appointmentDate || "";
+  const etaText = appointment?.status === "PENDING"
+    ? `Cita: ${formatAppointmentDateDisplay(apptDateStr)}`
+    : appointment?.status === "ACCEPTED"
+      ? "En proceso de servicio"
+      : "N/A";
+
+  return {
+    id: `SIG-${String(appointment?.id || 0).padStart(5, "0")}`,
+    plate: vehicle?.plate || "N/A",
+    brand: vehicle?.brand || "Genérica",
+    model: vehicle?.model || "Modelo",
+    year: vehicle?.year ? String(vehicle.year) : "N/A",
+    engine: "Información no disponible",
+    mileage: "N/A",
+    progress: statusInfo.progress,
+    statusText: statusInfo.text,
+    statusType: statusInfo.type,
+    eta: etaText,
+    mechanic: {
+      name: "Por asignar",
+      level: "Técnico SIGMOTOS",
+      avatar: "🔧",
+    },
+    procedures,
+    timeline: buildTimeline(appointment?.status || "PENDING", apptDateStr),
+    logs: buildLogs(appointment?.status || "PENDING", apptDateStr),
+  };
+};
+
 const STATUS_COLOR = {
   reparacion: "#ff5a00",
   listo: "#4ade80",
@@ -117,6 +297,7 @@ const STATUS_COLOR = {
 
 export default function MaintenanceStatus() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedData, setSelectedData] = useState<BikeMaintenance | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -135,23 +316,87 @@ export default function MaintenanceStatus() {
       "INICIALIZANDO COMUNICACIÓN CON BASE DE DATOS...",
       "CONEXIÓN CON ESTACIÓN DE MANTENIMIENTO: ACTIVA",
       `BUSCANDO PLACA: [ ${cleanPlate} ]...`,
-      "DATOS ENCONTRADOS. CARGANDO TELEMETRÍA...",
-      "INICIALIZACIÓN COMPLETA.",
     ];
     let i = 0;
     const interval = setInterval(() => {
       if (i < logs.length) { setBootLogs((prev) => [...prev, logs[i]]); i++; }
       else {
         clearInterval(interval);
-        setTimeout(() => {
-          const match = mockDatabase[cleanPlate];
-          if (match) { setSelectedData(match); }
-          else { setSearchError(`Sin registro para "${cleanPlate}". Prueba: NJA-400, MT09-X, RC-200.`); setSelectedData(null); }
-          setIsSearching(false);
-        }, 500);
+        
+        // Primero, si es una placa de demostración rápida, cargamos de la mock database
+        const formattedMockPlate = cleanPlate.replace("-", "").toUpperCase();
+        const mockKeys = Object.keys(mockDatabase).map(k => k.replace("-", "").toUpperCase());
+        const mockKeyIdx = mockKeys.indexOf(formattedMockPlate);
+
+        if (mockKeyIdx !== -1) {
+          const originalKey = Object.keys(mockDatabase)[mockKeyIdx];
+          const match = mockDatabase[originalKey];
+          setBootLogs((prev) => [...prev, "DATOS ENCONTRADOS EN REGISTRO LOCAL.", "INICIALIZACIÓN COMPLETA."]);
+          setTimeout(() => {
+            setSelectedData(match);
+            setIsSearching(false);
+          }, 500);
+          return;
+        }
+
+        // Si no, hacemos la búsqueda real en el backend
+        (async () => {
+          try {
+            const vehicle = await searchVehicleByPlate(cleanPlate);
+            if (!vehicle) {
+              setBootLogs((prev) => [...prev, `⚠ PLACA "${cleanPlate}" NO ENCONTRADA EN EL SISTEMA.`]);
+              setTimeout(() => {
+                setSearchError(`Sin registro para "${cleanPlate}". Verifica que la placa esté registrada.`);
+                setSelectedData(null);
+                setIsSearching(false);
+              }, 600);
+              return;
+            }
+
+            setBootLogs((prev) => [...prev, `VEHÍCULO ENCONTRADO: ${vehicle.brand} ${vehicle.model}`]);
+
+            const appointments = await getAppointmentsByVehicle(vehicle.id);
+            if (!appointments || appointments.length === 0) {
+              setBootLogs((prev) => [...prev, "⚠ NO HAY MANTENIMIENTOS AGENDADOS PARA ESTE VEHÍCULO."]);
+              setTimeout(() => {
+                setSearchError(`El vehículo ${vehicle.brand} ${vehicle.model} (${vehicle.plate}) no tiene mantenimientos agendados.`);
+                setSelectedData(null);
+                setIsSearching(false);
+              }, 600);
+              return;
+            }
+
+            setBootLogs((prev) => [...prev, `${appointments.length} CITA(S) ENCONTRADA(S). CARGANDO TELEMETRÍA...`]);
+            setBootLogs((prev) => [...prev, "INICIALIZACIÓN COMPLETA."]);
+
+            const latestAppointment = appointments[0];
+            const maintenanceData = buildMaintenanceFromBackend(vehicle, latestAppointment);
+
+            setTimeout(() => {
+              setSelectedData(maintenanceData);
+              setIsSearching(false);
+            }, 500);
+          } catch (err) {
+            console.error("Error buscando mantenimiento:", err);
+            setBootLogs((prev) => [...prev, "⚠ ERROR AL CONECTAR CON EL SERVIDOR."]);
+            setTimeout(() => {
+              setSearchError("Error al conectar con el servidor. Verifica que el backend esté activo.");
+              setSelectedData(null);
+              setIsSearching(false);
+            }, 600);
+          }
+        })();
       }
     }, 220);
   };
+
+  useEffect(() => {
+    const plateParam = searchParams.get("plate");
+    if (plateParam) {
+      setSearchQuery(plateParam);
+      handleSearch(plateParam);
+    }
+  }, [searchParams]);
 
   const handleSimulateReport = () => {
     setIsGeneratingReport(true);
@@ -232,7 +477,7 @@ export default function MaintenanceStatus() {
                       </label>
                       <input
                         type="text"
-                        placeholder="Ej: NJA-400"
+                        placeholder="Ej: ABC-123"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleSearch(searchQuery)}
@@ -273,7 +518,7 @@ export default function MaintenanceStatus() {
                   <div style={{ backgroundColor: "#0d0d0d", border: "1px solid #1e1e1e", borderRadius: 4, padding: 20, minHeight: 200, fontFamily: "monospace", fontSize: 12 }}>
                     {bootLogs.map((log, i) => (
                       <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                        style={{ display: "flex", gap: 8, marginBottom: 8, color: i === bootLogs.length - 1 ? "#ff5a00" : "#555" }}>
+                        style={{ display: "flex", gap: 8, marginBottom: 8, color: log.startsWith("⚠") ? "#f87171" : i === bootLogs.length - 1 ? "#ff5a00" : "#555" }}>
                         <span>&gt;</span><span>{log}</span>
                       </motion.div>
                     ))}
@@ -415,7 +660,9 @@ export default function MaintenanceStatus() {
                             </p>
                           </div>
                         </div>
-                        <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: "#e8e8e8" }}>${proc.price.toLocaleString("es-CO")}</span>
+                        <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: "#e8e8e8" }}>
+                          {proc.price > 0 ? `$${proc.price.toLocaleString("es-CO")}` : "—"}
+                        </span>
                       </div>
                     ))}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 18px", backgroundColor: "#111", borderTop: "2px solid #2a2a2a" }}>
