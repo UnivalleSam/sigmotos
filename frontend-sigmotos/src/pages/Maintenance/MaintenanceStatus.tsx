@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { searchVehicleByPlate, getAppointmentsByVehicle } from "../../services/api";
@@ -305,6 +305,7 @@ export default function MaintenanceStatus() {
   const [bootLogs, setBootLogs] = useState<string[]>([]);
   const [showReportModal, setShowReportModal] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const searchIntervalRef = useRef<any>(null);
 
   const handleSearch = (plateCode: string) => {
     if (!plateCode.trim()) { setSearchError("Ingresa una placa o código."); return; }
@@ -312,16 +313,26 @@ export default function MaintenanceStatus() {
     setSearchError("");
     setIsSearching(true);
     setBootLogs([]);
+    
+    if (searchIntervalRef.current) {
+      clearInterval(searchIntervalRef.current);
+    }
+
     const logs = [
       "INICIALIZANDO COMUNICACIÓN CON BASE DE DATOS...",
       "CONEXIÓN CON ESTACIÓN DE MANTENIMIENTO: ACTIVA",
       `BUSCANDO PLACA: [ ${cleanPlate} ]...`,
     ];
     let i = 0;
-    const interval = setInterval(() => {
-      if (i < logs.length) { setBootLogs((prev) => [...prev, logs[i]]); i++; }
-      else {
-        clearInterval(interval);
+    searchIntervalRef.current = setInterval(() => {
+      if (i < logs.length) {
+        setBootLogs((prev) => [...prev, logs[i]]);
+        i++;
+      } else {
+        if (searchIntervalRef.current) {
+          clearInterval(searchIntervalRef.current);
+          searchIntervalRef.current = null;
+        }
         
         // Primero, si es una placa de demostración rápida, cargamos de la mock database
         const formattedMockPlate = cleanPlate.replace("-", "").toUpperCase();
@@ -397,6 +408,14 @@ export default function MaintenanceStatus() {
       handleSearch(plateParam);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    return () => {
+      if (searchIntervalRef.current) {
+        clearInterval(searchIntervalRef.current);
+      }
+    };
+  }, []);
 
   const handleSimulateReport = () => {
     setIsGeneratingReport(true);
@@ -516,9 +535,9 @@ export default function MaintenanceStatus() {
                   </div>
                 ) : (
                   <div style={{ backgroundColor: "#0d0d0d", border: "1px solid #1e1e1e", borderRadius: 4, padding: 20, minHeight: 200, fontFamily: "monospace", fontSize: 12 }}>
-                    {bootLogs.map((log, i) => (
+                    {bootLogs.filter(Boolean).map((log, i) => (
                       <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                        style={{ display: "flex", gap: 8, marginBottom: 8, color: log.startsWith("⚠") ? "#f87171" : i === bootLogs.length - 1 ? "#ff5a00" : "#555" }}>
+                        style={{ display: "flex", gap: 8, marginBottom: 8, color: log?.startsWith("⚠") ? "#f87171" : i === bootLogs.length - 1 ? "#ff5a00" : "#555" }}>
                         <span>&gt;</span><span>{log}</span>
                       </motion.div>
                     ))}
